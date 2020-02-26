@@ -10,7 +10,7 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 	private final String url;
 	private Lock myOnlyLock;
 
-	MyClientRemote myFirstRemoteClient;
+	MyClient myFirstRemoteClient;
 
 	CentralSiteRemote() throws RemoteException {
 		// constructor for parent class
@@ -25,17 +25,19 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 		}
 		
 		// Establish connection properties for PostgreSQL database
-		url = "jdbc:postgresql://128.10.2.13:5432/test";
+		url = "jdbc:postgresql://localhost:5432/test";
 		connectionProps = new Properties();
 		connectionProps.setProperty("user", "remotereader");
 		connectionProps.setProperty("password", "bb");
 		connectionProps.setProperty("ssl", "false");
 	}
 
-	public void registerSlave(MyClientRemote myCRemote){
+	public void registerSlave(final MyClient myCRemote){
 		System.out.println("Test line 36 CSR");
 		myFirstRemoteClient = myCRemote;
-		myFirstRemoteClient.receiveUpdate("DID OUR FIRST SERVER TO SLAVE CALL WORK?");
+		try {
+			myCRemote.receiveUpdate("DID OUR FIRST SERVER TO SLAVE CALL WORK?");
+		} catch(Exception e) {}
 	}
 
 	public void getLock(final String table, final String lockType, String user) {
@@ -118,7 +120,10 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 		}
 	}
 	public void pushUpdate(String update){
-		System.out.println("Update DB as follows: " + update);
+		System.out.println("Server push says: Update DB as follows: " + update);
+		try {
+			myFirstRemoteClient.receiveUpdate(update);
+		} catch (Exception e) {}
 	}
 
 }
