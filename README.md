@@ -8,7 +8,7 @@ b.	(optional) bin/psql -d test -U remotereader
 2.	Compile code if changes made:
 a.	javac *.java
 3.	RMI nonsense:
-a.	rmic CentralSiteRemote
+a.	(optional) rmic CentralSiteRemote
 b.	rmiregistry 5000
 4.	Start Central concurrency controller:
 a.	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. MyServer

@@ -1,10 +1,16 @@
 import java.rmi.*;
 import java.rmi.server.*;
+import java.rmi.registry.*;
 import java.sql.*;
 import java.util.Properties;
 
 
 public class CentralSiteRemote extends UnicastRemoteObject implements CentralSite{
+
+	/**
+	 *
+	 */
+	private static final long serialVersionUID = -4710339008601446074L;
 
 	private final Properties connectionProps;
 	private final String url;
@@ -15,6 +21,7 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 	CentralSiteRemote() throws RemoteException {
 		// constructor for parent class
 		super();
+
 		myOnlyLock = new Lock("student");
 		// Loading the Driver
 		try {
@@ -82,7 +89,7 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 		myOnlyLock.releaseLock(rqtTrans);
 	}
 
-	public void queryAll() throws RemoteException {
+	/*public void queryAll() throws RemoteException {
 		Statement st = null;
 		ResultSet rs = null;
 		Connection db = null;
@@ -118,12 +125,12 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 				sqlErr.printStackTrace();
 			}
 		}
-	}
+	}*/
 	public void pushUpdate(String update){
 		System.out.println("Server push says: Update DB as follows: " + update);
 		try {
 			myFirstRemoteClient.receiveUpdate(update);
+			//TODO implement wait for positive response
 		} catch (Exception e) {}
 	}
-
 }
