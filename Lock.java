@@ -87,6 +87,7 @@ public class Lock {
 		}
 		else if(requestingTransaction.getType() == transactionType.WRITE) {
 			isWriteLocked = false;
+			//TODO add timestamps to lock requests
 			//TODO Compare timestamps of first reader and first writer 
 			//earliest timestamp gets lock - is this the book algorithm?
 			if(readQueue.size() > 0){

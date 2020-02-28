@@ -6,7 +6,7 @@ import java.sql.*;
 import java.net.InetAddress;
  
 
-public class MyClientRemote extends UnicastRemoteObject implements MyClient{ 
+public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{ 
 
 	/**
 	 *
@@ -18,7 +18,7 @@ public class MyClientRemote extends UnicastRemoteObject implements MyClient{
 	private InetAddress localAddress;
 	private CentralSite stub;
 
-	MyClientRemote() throws RemoteException {
+	RemoteSiteImpl() throws RemoteException {
 		// constructor for parent class
 		super();
 		// Loading the Driver
@@ -48,7 +48,7 @@ public class MyClientRemote extends UnicastRemoteObject implements MyClient{
 
 	public static void main(String args[]){
 		try {
-			MyClientRemote obj = new MyClientRemote();
+			RemoteSiteImpl obj = new RemoteSiteImpl();
 			obj.doWork();
 		} catch(Exception e){}
 	}
@@ -59,15 +59,21 @@ public class MyClientRemote extends UnicastRemoteObject implements MyClient{
 
 			stub.registerSlave(this);
 
-			String queryStr = "SELECT * FROM student WHERE name = 'Emily'";
+			String queryStr = "SELECT * FROM student;";
 			queryParser(queryStr);
 			
-			/*stub.getLock("student", "read", "192.168.0.1");
-			stub.getLock("student", "write", "192.168.0.2");
+			stub.getLock("student", "read", "192.168.0.1");
+			stub.getLock("student", "read", "192.168.0.2");
+			stub.getLock("student", "read", "192.168.0.3");
+
+			stub.getLock("student", "write", "192.168.0.4");
+
 			stub.releaseLock("student", "read", "192.168.0.1");
+			stub.releaseLock("student", "read", "192.168.0.2");
+			stub.releaseLock("student", "read", "192.168.0.3");
+
 			stub.getLock("student", "read", "192.168.0.1");
 			stub.releaseLock("student", "write", "192.168.0.2");
-			stub.pushUpdate("Need to add a student");*/
 
 		} catch(Exception e){
 			System.err.println(e);
@@ -115,22 +121,32 @@ public class MyClientRemote extends UnicastRemoteObject implements MyClient{
 		}
 	}
 	private void update(String queryStr) {
+		//open connection
+		//obtain write lock
+		//do write, commit?
+		//inform everyone (thru manager?)
+		//receive all clear
+		//release lock
 
 	}
 	private void insert(String queryStr) {
-
+		//open connection
+		//lock needed? YES if lock granularity is by table
+		//do update, commit?
+		//inform everyone
+		//receive all clear
+		//release lock
 	}
 	
 	public void receiveUpdate(String update) {
 		System.out.println("Slave Receiving the update: " + update);
 		Statement st = null;
-		ResultSet rs = null;
 		Connection db = null;
 		try {
 			db = DriverManager.getConnection(url, connectionProps);
 			System.out.println("The connection to the database was successfully opened.");
 			st = db.createStatement();
-			rs = st.executeQuery(update);
+			st.executeUpdate(update);
 		} catch (final Exception e) {
 			System.out.println("DatabaseTest exception: " + e.getMessage());
 			e.printStackTrace();
@@ -138,9 +154,8 @@ public class MyClientRemote extends UnicastRemoteObject implements MyClient{
 			// Close the ResultSet and the Statement variables and close
 			// the connection to the database.
 			try {
-				//TODO implement sending a positive response
+				//TODO implement sending a positive response to master
 				//stub.updateComplete(timestamp, localAddress.toString());
-				rs.close();
 				st.close();
 				db.close();
 				System.out.println("Closed connection to the database.");

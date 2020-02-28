@@ -5,7 +5,7 @@ import java.sql.*;
 import java.util.Properties;
 
 
-public class CentralSiteRemote extends UnicastRemoteObject implements CentralSite{
+public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 
 	/**
 	 *
@@ -16,9 +16,9 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 	private final String url;
 	private Lock myOnlyLock;
 
-	MyClient myFirstRemoteClient;
+	RemoteSite myFirstRemoteClient;
 
-	CentralSiteRemote() throws RemoteException {
+	CentralSiteImpl() throws RemoteException {
 		// constructor for parent class
 		super();
 
@@ -39,12 +39,11 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 		connectionProps.setProperty("ssl", "false");
 	}
 
-	public void registerSlave(final MyClient myCRemote){
-		System.out.println("Test line 36 CSR");
+	public void registerSlave(final RemoteSite myCRemote){
 		myFirstRemoteClient = myCRemote;
-		try {
-			myCRemote.receiveUpdate("DID OUR FIRST SERVER TO SLAVE CALL WORK?");
-		} catch(Exception e) {}
+		/*try {
+			myCRemote.receiveUpdate("insert into student values ('6', 'Chase');");
+		} catch(Exception e) {}*/
 	}
 
 	public void getLock(final String table, final String lockType, String user) {
@@ -131,6 +130,7 @@ public class CentralSiteRemote extends UnicastRemoteObject implements CentralSit
 		try {
 			myFirstRemoteClient.receiveUpdate(update);
 			//TODO implement wait for positive response
+			//TODO implement multiple slaves
 		} catch (Exception e) {}
 	}
 }

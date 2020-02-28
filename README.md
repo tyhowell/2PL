@@ -13,4 +13,4 @@ b.	rmiregistry 5000
 4.	Start Central concurrency controller:
 a.	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. MyServer
 5.	Issue client requests
-a.	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. MyClientRemote
+a.	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl
