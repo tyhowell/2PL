@@ -4,6 +4,9 @@ import java.rmi.server.*;
 import java.rmi.registry.*;
 import java.sql.*;
 import java.net.InetAddress;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
  
 
 public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{ 
@@ -18,7 +21,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	private InetAddress localAddress;
 	private CentralSite stub;
 
-	RemoteSiteImpl() throws RemoteException {
+	RemoteSiteImpl(int siteNum) throws RemoteException {
 		// constructor for parent class
 		super();
 		// Loading the Driver
@@ -38,17 +41,17 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			System.exit(-1);
 		}
 		// Establish connection properties for PostgreSQL database
-		url = "jdbc:postgresql://localhost:5432/test";
+		url = "jdbc:postgresql://localhost:5432/remotesite" + Integer.toString(siteNum);
 		connectionProps = new Properties();
 		connectionProps.setProperty("user", "remotereader");
 		connectionProps.setProperty("password", "bb");
 		connectionProps.setProperty("ssl", "false");
-		System.out.println("Connection Properties set in MCR");
 	}
 
 	public static void main(String args[]){
 		try {
-			RemoteSiteImpl obj = new RemoteSiteImpl();
+			int siteNum = 0;
+			RemoteSiteImpl obj = new RemoteSiteImpl(siteNum);
 			obj.doWork();
 		} catch(Exception e){}
 	}
@@ -56,13 +59,13 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	private void doWork() {
 		try{
 			stub=(CentralSite)Naming.lookup("rmi://localhost:5000/sonoo");
-
 			stub.registerSlave(this);
+			clearAndCopy();
 
 			String queryStr = "SELECT * FROM student;";
 			queryParser(queryStr);
 			
-			stub.getLock("student", "read", "192.168.0.1");
+			/*stub.getLock("student", "read", "192.168.0.1");
 			stub.getLock("student", "read", "192.168.0.2");
 			stub.getLock("student", "read", "192.168.0.3");
 
@@ -73,7 +76,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			stub.releaseLock("student", "read", "192.168.0.3");
 
 			stub.getLock("student", "read", "192.168.0.1");
-			stub.releaseLock("student", "write", "192.168.0.2");
+			stub.releaseLock("student", "write", "192.168.0.2");*/
 
 		} catch(Exception e){
 			System.err.println(e);
@@ -81,7 +84,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		}
 	}
 
-	private void read(String queryStr) {
+	private void executeRead(String queryStr) {
 		Statement st = null;
 		ResultSet rs = null;
 		Connection db = null;
@@ -120,7 +123,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			}
 		}
 	}
-	private void update(String queryStr) {
+	private void executeUpdate(String queryStr) {
 		//open connection
 		//obtain write lock
 		//do write, commit?
@@ -129,7 +132,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		//release lock
 
 	}
-	private void insert(String queryStr) {
+	private void executeInsert(String queryStr) {
 		//open connection
 		//lock needed? YES if lock granularity is by table
 		//do update, commit?
@@ -167,13 +170,50 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 
 	private void queryParser(String queryStr) {
 		if (queryStr.toLowerCase().contains("select"))
-			read(queryStr);
+			executeRead(queryStr);
 		else if (queryStr.toLowerCase().contains("update"))
-			update(queryStr);
+			executeUpdate(queryStr);
 		else if (queryStr.toLowerCase().contains("insert"))
-			insert(queryStr);
+			executeInsert(queryStr);
 		else {
 			System.err.println("Illegal or unsupported SQL syntax");
+		}
+	}
+
+	private void clearAndCopy() {
+		/* Deletes all rows from table student
+		*  Has master query all and inserts all results into table
+		*/
+		Statement st = null;
+		List<Map<String, Object>> resultList = new ArrayList<Map<String, Object>>();
+		Connection db = null;
+		try {
+			db = DriverManager.getConnection(url, connectionProps);
+			st = db.createStatement();
+			//clear table
+			st.executeUpdate("DELETE FROM student");
+			//get resultset from central site
+			resultList = stub.queryAll();
+			Map<String, Object> row = null;	
+			for (int i = 0; i < resultList.size(); i++) {
+				row = resultList.get(i);
+				String studentID = row.get("id").toString();
+				String studentName = row.get("name").toString();
+				st.executeUpdate("INSERT INTO student values (" + studentID + ", '" + studentName + "')");
+			}
+			
+		} catch (final Exception e) {
+			System.out.println("DatabaseTest exception: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			// Close the ResultSet and the Statement variables and close
+			// the connection to the database.
+			try {
+				st.close();
+				db.close();
+			} catch (final SQLException sqlErr) {
+				sqlErr.printStackTrace();
+			}
 		}
 	}
 }

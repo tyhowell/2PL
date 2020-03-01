@@ -2,7 +2,11 @@ import java.rmi.*;
 import java.rmi.server.*;
 import java.rmi.registry.*;
 import java.sql.*;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Properties;
+import java.util.Map;
+import java.util.HashMap;
 
 
 public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
@@ -32,7 +36,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		}
 		
 		// Establish connection properties for PostgreSQL database
-		url = "jdbc:postgresql://localhost:5432/test";
+		url = "jdbc:postgresql://localhost:5432/centralsite";
 		connectionProps = new Properties();
 		connectionProps.setProperty("user", "remotereader");
 		connectionProps.setProperty("password", "bb");
@@ -88,26 +92,29 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		myOnlyLock.releaseLock(rqtTrans);
 	}
 
-	/*public void queryAll() throws RemoteException {
+	public List<Map<String, Object>> queryAll() throws RemoteException {
+		/* retrieves all rows from table student
+		 * returns results in List
+		 */
 		Statement st = null;
 		ResultSet rs = null;
 		Connection db = null;
+		List<Map<String, Object>> resultList = new ArrayList<Map<String, Object>>();
 		try {
 			db = DriverManager.getConnection(url, connectionProps);
-			System.out.println("The connection to the database was successfully opened.");
 			st = db.createStatement();
+			rs = st.executeQuery("SELECT * FROM student");
 
-			rs = st.executeQuery("SELECT * FROM student WHERE name = 'Emily'");
-			int element = 1;
-
-			// Print out all elements in the table named telephonebook.
+			Map<String, Object> row = null;	
+			ResultSetMetaData metaData = rs.getMetaData();
+			Integer columnCount = metaData.getColumnCount();
+		
 			while (rs.next()) {
-				System.out.print("Element " + element + ": ");
-				System.out.print(rs.getString(1));
-				System.out.print(" ");
-				System.out.print(rs.getString(2));
-				System.out.print("\n");
-				element = element + 1;
+				row = new HashMap<String, Object>();
+				for (int i = 1; i <= columnCount; i++) {
+					row.put(metaData.getColumnName(i), rs.getObject(i));
+				}
+				resultList.add(row);
 			}
 		} catch (final Exception e) {
 			System.out.println("DatabaseTest exception: " + e.getMessage());
@@ -119,12 +126,13 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 				rs.close();
 				st.close();
 				db.close();
-				System.out.println("Closed connection to the database.");
 			} catch (final SQLException sqlErr) {
 				sqlErr.printStackTrace();
 			}
 		}
-	}*/
+		return resultList;
+	}
+
 	public void pushUpdate(String update){
 		System.out.println("Server push says: Update DB as follows: " + update);
 		try {

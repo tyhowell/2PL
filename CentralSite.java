@@ -1,9 +1,11 @@
 import java.rmi.*;
+import java.util.List;
+import java.util.Map;
 public interface CentralSite extends Remote{
 
 	public void getLock(String table, String lockType, String user)throws RemoteException;
 	public void releaseLock(String table, String lockType, String user)throws RemoteException;
-	//public void queryAll() throws RemoteException;
+	public List<Map<String, Object>> queryAll() throws RemoteException;
 	public void pushUpdate(String update) throws RemoteException;
 	public void registerSlave(final RemoteSite myCRemote) throws RemoteException;
 	
