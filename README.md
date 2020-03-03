@@ -3,14 +3,28 @@
 ## Purdue CS54200 Spring 2020
 
 1.	Launch postgresql servers on master and slave sites:
-    a.	bin/pg_ctl -D data/ restart
-    b.	(optional) bin/psql -d test -U remotereader
+    -	bin/pg_ctl -D data/ restart
+    -	(optional) bin/psql -d test -U remotereader
 2.	Compile code if changes made:
-    a.	javac *.java
+    -	javac *.java
 3.	RMI nonsense:
-    a.	(optional) rmic CentralSiteRemote
-    b.	rmiregistry 5000
+    -	(optional) rmic CentralSiteRemote
+    -	rmiregistry 5000
 4.	Start Central concurrency controller:
-    a.	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. MyServer
+    -	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. MyServer
 5.	Issue client requests
-    a.	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl
+    -	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 0
+    -   java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 1
+
+# Metrics
+[ ] Consider at least four sites, each site with a copy of the database. Assume a fully replicated database.
+[x] Use a non-distibuted database on each site, such as SQLite, PostgreSQL.
+[x] Use a centralized control for global decisions with a Central Site. The lock table has to be store at the Central Site.
+[x] All transactions arriving at different sites are sent to the Central Site. Queues for requesting and releasing locks will be maintained at the Central Site.
+[x] Processing must take place at the site where the transaction is submitted. Locks will be released after waiting on the database at the centralized site. Updates for other sites will be sent and they may arrive in a different order.
+[x] You may implement the algorithm of section 11.3.1 of our text book (Ozsu) or a variation of it.
+[ ] The 2PL implementation must ensure that all updates at all sites are posted in the same order. Furthermore, you must detect/resolve deadlocks. Please refer to section 11.6 in the textbook.
+
+
+# Notes
+- PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3

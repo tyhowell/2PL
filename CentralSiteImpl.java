@@ -20,13 +20,17 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	private final String url;
 	private Lock myOnlyLock;
 
+	private Integer numRemoteConnections;
 	RemoteSite myFirstRemoteClient;
+	RemoteSite mySecondRemoteClient;
+	List<RemoteSite> remoteSiteList; 
 
 	CentralSiteImpl() throws RemoteException {
 		// constructor for parent class
 		super();
 
 		myOnlyLock = new Lock("student");
+		remoteSiteList = new ArrayList<>();
 		// Loading the Driver
 		try {
 			Class.forName("org.postgresql.Driver");
@@ -41,10 +45,14 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		connectionProps.setProperty("user", "remotereader");
 		connectionProps.setProperty("password", "bb");
 		connectionProps.setProperty("ssl", "false");
+		numRemoteConnections = 0;
 	}
 
 	public void registerSlave(final RemoteSite myCRemote){
-		myFirstRemoteClient = myCRemote;
+		remoteSiteList.add(myCRemote);
+		numRemoteConnections++;
+		System.out.println(numRemoteConnections + " remote site connections established");
+
 		/*try {
 			myCRemote.receiveUpdate("insert into student values ('6', 'Chase');");
 		} catch(Exception e) {}*/
@@ -133,12 +141,46 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		return resultList;
 	}
 
-	public void pushUpdate(String update){
-		System.out.println("Server push says: Update DB as follows: " + update);
+	public void pushUpdate(String update, Integer fromSite) throws RemoteException{
+		System.out.println("Update from " + fromSite + ", update DB as follows: " + update);
 		try {
-			myFirstRemoteClient.receiveUpdate(update);
+			for (Integer i = 0; i < numRemoteConnections; i++) {
+				System.out.println("i: " + i + " fromsite: " + fromSite);
+				if (!i.equals(fromSite)) { //avoid pushing update back to originating site
+					System.out.println("Pushing update to site " + i);
+					remoteSiteList.get(i).receiveUpdate(update);
+				}
+			}	
+			/*if (fromSite != 0)
+				myFirstRemoteClient.receiveUpdate(update);
+			else if (fromSite != 0)
+				mySecondRemoteClient.receiveUpdate(update);	*/
 			//TODO implement wait for positive response
 			//TODO implement multiple slaves
 		} catch (Exception e) {}
+		//update self
+		Statement st = null;
+		Connection db = null;
+		try {
+			db = DriverManager.getConnection(url, connectionProps);
+			System.out.println("The connection to the database was successfully opened.");
+			st = db.createStatement();
+			st.executeUpdate(update);
+		} catch (final Exception e) {
+			System.out.println("Database exception: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			// Close the ResultSet and the Statement variables and close
+			// the connection to the database.
+			try {
+				//TODO implement sending a positive response to master
+				//stub.updateComplete(timestamp, localAddress.toString());
+				st.close();
+				db.close();
+				System.out.println("Closed connection to the database.");
+			} catch (final SQLException sqlErr) {
+				sqlErr.printStackTrace();
+			}
+		}
 	}
 }
