@@ -191,8 +191,27 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			}
 		}
 	}
+	private void executeBegin(String queryStr) {
+		//create transaction ID - where to store?
+		// call beginTransaction - what does book say to do?
+
+	}
+	private void executeCommit(String queryStr) {
+		//create transaction ID - where to store?
+		// call beginTransaction - what does book say to do?
+
+	}
+	private void executeRollback(String queryStr) {
+		//create transaction ID - where to store?
+		// call beginTransaction - what does book say to do?
+
+	}
 	
 	public void receiveUpdate(String update) {
+	/*  Updates come from central site
+	 *  Currently in SQL
+	 * 
+	 */
 		System.out.println("Slave " + remoteSiteNum + " receiving the update: " + update); //TODO remove
 		Statement st = null;
 		Connection db = null;
@@ -220,12 +239,21 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	}
 
 	private void queryParser(String queryStr) {
+		//TODO add support for more complex queries?
+		//TODO add support for begin, commit, rollback
 		if (queryStr.toLowerCase().contains("select"))
 			executeRead(queryStr);
 		else if (queryStr.toLowerCase().contains("update"))
 			executeUpdate(queryStr);
 		else if (queryStr.toLowerCase().contains("insert"))
 			executeInsert(queryStr);
+		else if (queryStr.toLowerCase().contains("begin"))
+			executeBegin(queryStr);
+		else if (queryStr.toLowerCase().contains("commit"))
+			executeCommit(queryStr);
+		else if (queryStr.toLowerCase().contains("rollback"))
+			executeRollback(queryStr);
+		
 		else {
 			System.err.println("Illegal or unsupported SQL syntax");
 		}

@@ -21,8 +21,6 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	private Lock myOnlyLock;
 
 	private Integer numRemoteConnections;
-	RemoteSite myFirstRemoteClient;
-	RemoteSite mySecondRemoteClient;
 	List<RemoteSite> remoteSiteList; 
 
 	CentralSiteImpl() throws RemoteException {
@@ -52,21 +50,9 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		remoteSiteList.add(myCRemote);
 		numRemoteConnections++;
 		System.out.println(numRemoteConnections + " remote site connections established");
-
-		/*try {
-			myCRemote.receiveUpdate("insert into student values ('6', 'Chase');");
-		} catch(Exception e) {}*/
 	}
 
 	public void getLock(final String table, final String lockType, String user) {
-		/*String connectionInfo;
-		try{
-			//connectionInfo = getClientHost();
-			System.out.println("Lock request from " + connectionInfo);
-		} catch (Exception e) {
-			System.err.println("Unable to get connection info on Client, canceling request");
-			return;
-		}*/
 		System.out.println(lockType + " lock requested for table: " + table + " from " + user);
 		// query to see if lock is available
 		Transaction rqtTrans;
@@ -77,8 +63,6 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 			rqtTrans = new Transaction(transactionType.WRITE, "value", 0, "rest");
 		}
 		myOnlyLock.getLock(rqtTrans);
-		// if not available, reply "wait", client must try again in X seconds
-		// if available, mark as unavailable in lock table, reply "you have lock"
 	}
 
 	public void releaseLock(String table, String lockType, String user) {
@@ -151,10 +135,6 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 					remoteSiteList.get(i).receiveUpdate(update);
 				}
 			}	
-			/*if (fromSite != 0)
-				myFirstRemoteClient.receiveUpdate(update);
-			else if (fromSite != 0)
-				mySecondRemoteClient.receiveUpdate(update);	*/
 			//TODO implement wait for positive response
 			//TODO implement multiple slaves
 		} catch (Exception e) {}

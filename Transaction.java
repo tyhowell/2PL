@@ -7,8 +7,8 @@ enum transactionType{
 public class Transaction {
 
 	private transactionType transType;
-	//private String arg : Data item;//probably shouldn't be string
-	private String val;//probably shouldn't be string
+	private String arg;// data item
+	private String val;//value to be read or written
 	private int tid;
 	private String res; //probably shouldn't be string
 
