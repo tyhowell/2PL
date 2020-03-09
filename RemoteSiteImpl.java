@@ -21,6 +21,9 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	private InetAddress localAddress;
 	private CentralSite stub;
 	private Integer remoteSiteNum;
+	private Boolean withinTransaction;
+	Integer activeTransaction;
+	Integer nextTransactionID;
 
 	RemoteSiteImpl(int siteNum) throws RemoteException {
 		// constructor for parent class
@@ -41,6 +44,9 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			e.printStackTrace();
 			System.exit(-1);
 		}
+		nextTransactionID = 0;
+		withinTransaction = false;
+		activeTransaction = -1;
 		// Establish connection properties for PostgreSQL database
 		url = "jdbc:postgresql://localhost:5432/remotesite" + Integer.toString(siteNum);
 		remoteSiteNum = siteNum;
@@ -100,9 +106,13 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			System.out.println("The connection to " + url + " was successfully opened.");
 			st = db.createStatement();
 
-			stub.getLock("student", "read", localAddress.toString());
+			stub.getLock("student", "read", localAddress.toString(), activeTransaction);
 			rs = st.executeQuery(queryStr);
-			stub.releaseLock("student", "read", localAddress.toString());
+			if (withinTransaction) {
+				//add lock to list of to be released on commit/abort
+			} else {
+				stub.releaseLock("student", "read", localAddress.toString(), activeTransaction);
+			}
 			int element = 1;
 
 			// Print out all elements in the table named telephonebook.
@@ -138,12 +148,14 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			db = DriverManager.getConnection(url, connectionProps);
 			st = db.createStatement();
 			//obtain write lock
-			stub.getLock("student", "write", localAddress.toString());
+			stub.getLock("student", "write", localAddress.toString(), activeTransaction);
 			//do write, commit?
 			st.executeUpdate(queryStr);
-			//push write to master
-			stub.pushUpdate(queryStr, remoteSiteNum);
-			stub.releaseLock("student", "write", localAddress.toString());
+			if (!withinTransaction) {
+				//push write to master
+				stub.pushUpdate(queryStr, remoteSiteNum);
+				stub.releaseLock("student", "write", localAddress.toString(), activeTransaction);
+			}
 		} catch (final Exception e) {
 			System.out.println("Database exception: " + e.getMessage());
 			e.printStackTrace();
@@ -169,12 +181,14 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			st = db.createStatement();
 			//obtain write lock
 			//lock needed? YES if lock granularity is by table TODO
-			stub.getLock("student", "write", localAddress.toString());
+			stub.getLock("student", "write", localAddress.toString(), activeTransaction);
 			//do insert, commit?
 			st.executeUpdate(queryStr);
-			//push write to master
-			stub.pushUpdate(queryStr, remoteSiteNum);
-			stub.releaseLock("student", "write", localAddress.toString());
+			if (!withinTransaction) {
+				//push write to master
+				stub.pushUpdate(queryStr, remoteSiteNum);
+				stub.releaseLock("student", "write", localAddress.toString(), activeTransaction);
+			}
 		} catch (final Exception e) {
 			System.out.println("Database exception: " + e.getMessage());
 			e.printStackTrace();
@@ -192,18 +206,39 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		}
 	}
 	private void executeBegin(String queryStr) {
-		//create transaction ID - where to store?
-		// call beginTransaction - what does book say to do?
-
+		Integer tID = (nextTransactionID * 10) + remoteSiteNum;
+		activeTransaction = tID;
+		nextTransactionID = nextTransactionID + 1;
+		withinTransaction = true;
+		Statement st = null;
+		Connection db = null;
+		try {
+			db = DriverManager.getConnection(url, connectionProps);
+			st = db.createStatement();
+			st.executeUpdate(queryStr);
+		} catch (final Exception e) {
+			System.out.println("Database exception: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			try {
+				st.close();
+				db.close();
+			} catch (final SQLException sqlErr) {
+				sqlErr.printStackTrace();
+			}
+		}
 	}
 	private void executeCommit(String queryStr) {
-		//create transaction ID - where to store?
-		// call beginTransaction - what does book say to do?
+		//execute sql
+		//push to master
+		//release all locks
+		withinTransaction = false;
 
 	}
 	private void executeRollback(String queryStr) {
-		//create transaction ID - where to store?
-		// call beginTransaction - what does book say to do?
+		//execute sql
+		//release all locks
+		withinTransaction = false;
 
 	}
 	

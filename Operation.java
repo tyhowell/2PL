@@ -1,25 +1,25 @@
 import java.lang.*; 
 
-enum transactionType{
+enum operationType{
 	BEGINTRANSACTION, READ, WRITE, ABORT, COMMIT
 }
 
-public class Transaction {
+public class Operation {
 
-	private transactionType transType;
+	private operationType opType;
 	private String arg;// data item
 	private String val;//value to be read or written
 	private int tid;
 	private String res; //probably shouldn't be string
 
-	Transaction(transactionType tType, String value, int tID, String rest) {
-		transType = tType;
+	Operation(operationType oType, String value, int tID, String rest) {
+		opType = oType;
 		val = value;
 		tid = tID;
 		res = rest;
 	}
 
-	public transactionType getType() {
-		return transType;
+	public operationType getType() {
+		return opType;
 	}
 }

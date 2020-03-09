@@ -8,10 +8,10 @@ import java.util.*;
 
 public class Lock {
 
-	private List<Transaction> readQueue;
-	private List<Transaction> writeQueue;
-	private List<Transaction> readHeld;
-	private List<Transaction> writeHeld; 
+	private List<Operation> readQueue;
+	private List<Operation> writeQueue;
+	private List<Operation> readHeld;
+	private List<Operation> writeHeld; 
 	private String tableName;
 	private Boolean isReadLocked;
 	private Boolean isWriteLocked;
@@ -32,31 +32,31 @@ public class Lock {
 		return tableName;
 	}
 
-	public Boolean getLock(Transaction requestingTransaction) { //TODO eventually not void
-		if(requestingTransaction.getType() == transactionType.READ) {
+	public Boolean getLock(Operation requestingOperation) { //TODO eventually not void
+		if(requestingOperation.getType() == operationType.READ) {
 			if (isReadLocked) {
 				System.out.println("Read lock is held, you can also read it!");
-				//readQueue.add(requestingTransaction);
+				//readQueue.add(requestingOperation);
 				numReaders++;
 				return true;
 			}
 			else if(isWriteLocked) {
 				System.out.println("Write lock is held, you are added to read queue");
-				readQueue.add(requestingTransaction);
+				readQueue.add(requestingOperation);
 				return false;
 			}
 			else {
 				System.out.println("Lock is available, you've got it!");
 				isReadLocked = true;
 				numReaders++;
-				//readHeld.add(requestingTransaction);
+				//readHeld.add(requestingOperation);
 				return true;
 			}
 		}
-		else if (requestingTransaction.getType() == transactionType.WRITE) {
+		else if (requestingOperation.getType() == operationType.WRITE) {
 			if (isReadLocked || isWriteLocked) {
 				System.out.println("Read or write lock is held, you are added to write queue");
-				writeQueue.add(requestingTransaction);
+				writeQueue.add(requestingOperation);
 				return false;
 			}
 			else {
@@ -71,21 +71,21 @@ public class Lock {
 		}
 	}
 
-	public void releaseLock(Transaction requestingTransaction) {
-		if(requestingTransaction.getType() == transactionType.READ) {
-			//readQueue.remove(requestingTransaction);
+	public void releaseLock(Operation requestingOperation) {
+		if(requestingOperation.getType() == operationType.READ) {
+			//readQueue.remove(requestingOperation);
 			numReaders--;
 			if(numReaders == 0){
 				isReadLocked = false;
 				if(writeQueue.size() > 0) {
 					System.out.println("Last read lock released, issuing write lock");
-					Transaction firstWriter = writeQueue.remove(0);
+					Operation firstWriter = writeQueue.remove(0);
 					//TODO send requesting write transaction lock
 					isWriteLocked = true;
 				}
 			}	
 		}
-		else if(requestingTransaction.getType() == transactionType.WRITE) {
+		else if(requestingOperation.getType() == operationType.WRITE) {
 			isWriteLocked = false;
 			//TODO add timestamps to lock requests
 			//TODO Compare timestamps of first reader and first writer 
@@ -98,14 +98,14 @@ public class Lock {
 					//TODO send requesting read transactions the lock
 					numReaders++;
 					isReadLocked = true;
-					Transaction firstReader = readQueue.remove(0);
+					Operation firstReader = readQueue.remove(0);
 				}
 			}
 			else if (writeQueue.size() > 0) {
 				System.out.println("Write lock released, issuing next write lock");
 				//TODO send requesting write transaction lock
 				isWriteLocked = true;
-				Transaction firstWriter = writeQueue.remove(0);
+				Operation firstWriter = writeQueue.remove(0);
 			}
 		}
 	}

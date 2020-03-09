@@ -52,20 +52,20 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		System.out.println(numRemoteConnections + " remote site connections established");
 	}
 
-	public void getLock(final String table, final String lockType, String user) {
+	public void getLock(final String table, final String lockType, String user, Integer tID) {
 		System.out.println(lockType + " lock requested for table: " + table + " from " + user);
 		// query to see if lock is available
-		Transaction rqtTrans;
+		Operation rqtOp;
 		if(lockType.equals("read")) {
-			rqtTrans = new Transaction(transactionType.READ, "value", 0, "rest");
+			rqtOp = new Operation(operationType.READ, "value", 0, "rest");
 		}
 		else {
-			rqtTrans = new Transaction(transactionType.WRITE, "value", 0, "rest");
+			rqtOp = new Operation(operationType.WRITE, "value", 0, "rest");
 		}
-		myOnlyLock.getLock(rqtTrans);
+		myOnlyLock.getLock(rqtOp);
 	}
 
-	public void releaseLock(String table, String lockType, String user) {
+	public void releaseLock(String table, String lockType, String user, Integer tID) {
 		String connectionInfo;
 		try{
 			connectionInfo = getClientHost();
@@ -74,14 +74,34 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 			return;
 		}
 		System.out.println("Releasing lock on table " + table + " from client " + user);
-		Transaction rqtTrans;
+		Operation rqtOp;
 		if (lockType.equals("read")) {
-			rqtTrans = new Transaction(transactionType.READ, "value", 0, "rest");
+			rqtOp = new Operation(operationType.READ, "value", 0, "rest");
 		}
 		else {
-			rqtTrans = new Transaction(transactionType.WRITE, "value", 0, "rest");
+			rqtOp = new Operation(operationType.WRITE, "value", 0, "rest");
 		}
-		myOnlyLock.releaseLock(rqtTrans);
+		myOnlyLock.releaseLock(rqtOp);
+	}
+	public void releaseAllLocks(Integer tID) {
+
+		//TODO IMPLEMENT THIS FUNCTION
+		String connectionInfo;
+		try{
+			connectionInfo = getClientHost();
+		} catch (Exception e) {
+			System.err.println("Unable to get connection info on Client, canceling request");
+			return;
+		}
+		System.out.println("Releasing lock on table " + table + " from client " + user);
+		Operation rqtOp;
+		if (lockType.equals("read")) {
+			rqtOp = new Operation(operationType.READ, "value", 0, "rest");
+		}
+		else {
+			rqtOp = new Operation(operationType.WRITE, "value", 0, "rest");
+		}
+		myOnlyLock.releaseLock(rqtOp);
 	}
 
 	public List<Map<String, Object>> queryAll() throws RemoteException {

@@ -27,6 +27,7 @@
 
 ## To Do
 - [ ] Implement transactions
+- [ ] Implement releaseAllLocks, Commit, rollback
 - [ ] Implement finer grained lock granularity
 ## Notes
 - PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3
