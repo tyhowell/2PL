@@ -53,7 +53,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	}
 
 	public void getLock(final String table, final String lockType, String user, Integer tID) {
-		System.out.println(lockType + " lock requested for table: " + table + " from " + user);
+		System.out.println(lockType + " lock requested for table: " + table + " from " + user + " tId: " + tID);
 		// query to see if lock is available
 		Operation rqtOp;
 		if(lockType.equals("read")) {
@@ -73,7 +73,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 			System.err.println("Unable to get connection info on Client, canceling request");
 			return;
 		}
-		System.out.println("Releasing lock on table " + table + " from client " + user);
+		System.out.println("Releasing lock on table " + table + " from client " + user + " tId " + tID);
 		Operation rqtOp;
 		if (lockType.equals("read")) {
 			rqtOp = new Operation(operationType.READ, "value", 0, "rest");
@@ -83,7 +83,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		}
 		myOnlyLock.releaseLock(rqtOp);
 	}
-	public void releaseAllLocks(Integer tID) {
+	public void releaseAllLocks(Integer tID, operationType reason) {
 
 		//TODO IMPLEMENT THIS FUNCTION
 		String connectionInfo;
@@ -93,15 +93,9 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 			System.err.println("Unable to get connection info on Client, canceling request");
 			return;
 		}
-		System.out.println("Releasing lock on table " + table + " from client " + user);
-		Operation rqtOp;
-		if (lockType.equals("read")) {
-			rqtOp = new Operation(operationType.READ, "value", 0, "rest");
-		}
-		else {
-			rqtOp = new Operation(operationType.WRITE, "value", 0, "rest");
-		}
-		myOnlyLock.releaseLock(rqtOp);
+		//TODO fill in value and "rest"
+		Operation rqtReleaseOp = new Operation(reason, "value", tID, "rest");
+		myOnlyLock.releaseLock(rqtReleaseOp);
 	}
 
 	public List<Map<String, Object>> queryAll() throws RemoteException {

@@ -7,6 +7,7 @@ import java.net.InetAddress;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Map;
+import java.io.*;
  
 
 public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{ 
@@ -16,6 +17,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	 */
 	private static final long serialVersionUID = 4891404420987536693L;
 
+	private String testFilePrefix;
 	private Properties connectionProps;
 	private String url;
 	private InetAddress localAddress;
@@ -44,6 +46,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			e.printStackTrace();
 			System.exit(-1);
 		}
+		testFilePrefix = "t1r"
 		nextTransactionID = 0;
 		withinTransaction = false;
 		activeTransaction = -1;
@@ -72,12 +75,25 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			stub.registerSlave(this);
 			clearAndCopy();
 
+			File file = new File("/homes/howell66/cs542/2PL/test/" + testFilePrefix + Integer.toString(remoteSiteNum)); 
+			BufferedReader br = new BufferedReader(new FileReader(file)); 
+			String st; 
+			while ((st = br.readLine()) != null) {
+				queryParser(st); 
+			} 
+			String queryBegin = "BEGIN;";
+			String queryCommit = "COMMIT;";
+			String queryRollback = "ROLLBACK;";
+			queryParser(queryBegin);
 			String queryStr = "SELECT * FROM student;";
 			queryParser(queryStr);
-			
-			queryStr = "INSERT INTO student values (6, 'Annie')";
-			if (remoteSiteNum == 1)
+			queryStr = "SELECT * FROM student WHERE id = 2;";
+			//queryStr = "INSERT INTO student values (6, 'Annie')";
+			if (remoteSiteNum == 5)
 				queryParser(queryStr);
+			queryParser(queryStr);
+			queryParser(queryBegin);
+			queryParser(queryStr);
 			/*stub.getLock("student", "read", "192.168.0.1");
 			stub.getLock("student", "read", "192.168.0.2");
 			stub.getLock("student", "read", "192.168.0.3");
@@ -229,15 +245,52 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		}
 	}
 	private void executeCommit(String queryStr) {
-		//execute sql
-		//push to master
-		//release all locks
+		Statement st = null;
+		Connection db = null;
+		try {
+			db = DriverManager.getConnection(url, connectionProps);
+			st = db.createStatement();
+			//execute sql
+			st.executeUpdate(queryStr);
+			//push to master
+			stub.pushUpdate(queryStr, remoteSiteNum);
+			//release all locks
+			stub.releaseAllLocks(activeTransaction, operationType.COMMIT);
+		} catch (final Exception e) {
+			System.out.println("Database exception: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			try {
+				st.close();
+				db.close();
+			} catch (final SQLException sqlErr) {
+				sqlErr.printStackTrace();
+			}
+		}
 		withinTransaction = false;
 
 	}
 	private void executeRollback(String queryStr) {
 		//execute sql
-		//release all locks
+		Statement st = null;
+		Connection db = null;
+		try {
+			db = DriverManager.getConnection(url, connectionProps);
+			st = db.createStatement();
+			st.executeUpdate(queryStr);
+			//release all locks
+			stub.releaseAllLocks(activeTransaction, operationType.ABORT);
+		} catch (final Exception e) {
+			System.out.println("Database exception: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			try {
+				st.close();
+				db.close();
+			} catch (final SQLException sqlErr) {
+				sqlErr.printStackTrace();
+			}
+		}
 		withinTransaction = false;
 
 	}
@@ -275,7 +328,6 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 
 	private void queryParser(String queryStr) {
 		//TODO add support for more complex queries?
-		//TODO add support for begin, commit, rollback
 		if (queryStr.toLowerCase().contains("select"))
 			executeRead(queryStr);
 		else if (queryStr.toLowerCase().contains("update"))
