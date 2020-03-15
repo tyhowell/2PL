@@ -13,8 +13,8 @@
 4.	Start Central concurrency controller:
     -	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. MyServer
 5.	Issue client requests
-    -	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 0
-    -   java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 1
+    -	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 0 t1
+    -   java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 1 t1
 
 ## Metrics
 - [ ] Consider at least four sites, each site with a copy of the database. Assume a fully replicated database.
@@ -29,5 +29,8 @@
 - [ ] Implement transactions
 - [ ] Implement releaseAllLocks, Commit, rollback
 - [ ] Implement finer grained lock granularity
+- [ ] Add check when obtaining lock to see if lock is held by oneself already
+- [ ] Lock requests should have the queryStr rather than which lock to get, lockManager should 
+        have the logic to decide which lock to grant (and check if already held!)
 ## Notes
 - PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3

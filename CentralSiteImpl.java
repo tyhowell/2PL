@@ -53,7 +53,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	}
 
 	public void getLock(final String table, final String lockType, String user, Integer tID) {
-		System.out.println(lockType + " lock requested for table: " + table + " from " + user + " tId: " + tID);
+		System.out.println(lockType + " lock requested for table: " + table + " from " + user + " site: " + tID);
 		// query to see if lock is available
 		Operation rqtOp;
 		if(lockType.equals("read")) {
