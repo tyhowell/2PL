@@ -4,6 +4,8 @@ import java.rmi.registry.*;
 import java.sql.*;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.Properties;
 import java.util.Map;
 import java.util.HashMap;
@@ -19,7 +21,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	private final Properties connectionProps;
 	private final String url;
 	private Lock myOnlyLock;
-
+	private static final Logger LOGGER = Logger.getLogger(RemoteSiteImpl.class.getName());
 	private Integer numRemoteConnections;
 	List<RemoteSite> remoteSiteList; 
 
@@ -28,7 +30,8 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		super();
 
 		myOnlyLock = new Lock("student");
-		remoteSiteList = new ArrayList<>();
+		remoteSiteList = new ArrayList<RemoteSite>();
+		LOGGER.setUseParentHandlers(false);
 		// Loading the Driver
 		try {
 			Class.forName("org.postgresql.Driver");
@@ -52,49 +55,47 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		System.out.println(numRemoteConnections + " remote site connections established");
 	}
 
-	public void getLock(final String table, final String lockType, String user, Integer tID) {
-		System.out.println(lockType + " lock requested for table: " + table + " from " + user + " site: " + tID);
+	public Boolean getLock(final String queryStr, Integer siteNum, Integer tID) {
+		// returns true if lock obtained, else returns false
+		LOGGER.log(Level.INFO, "lock requested for query: " + queryStr + " from " + Integer.toString(siteNum) + " tID: " + Integer.toString(tID));
+		//System.out.println("lock requested for query: " + queryStr + " from " + Integer.toString(siteNum) + " tID: " + Integer.toString(tID));
 		// query to see if lock is available
 		Operation rqtOp;
-		if(lockType.equals("read")) {
-			rqtOp = new Operation(operationType.READ, "value", 0, "rest");
+		String queryType = "read";
+		if (queryStr.toLowerCase().contains("select"))
+			queryType = "read";
+		else if (queryStr.toLowerCase().contains("update"))
+			queryType = "write";
+		else if (queryStr.toLowerCase().contains("insert"))
+			queryType = "write";
+
+		if(queryType.equals("read")) {
+			rqtOp = new Operation(operationType.READ, "student", "value", tID, "rest", siteNum);
 		}
 		else {
-			rqtOp = new Operation(operationType.WRITE, "value", 0, "rest");
+			rqtOp = new Operation(operationType.WRITE, "student", "value", tID, "rest", siteNum);
 		}
-		myOnlyLock.getLock(rqtOp);
+		return myOnlyLock.getLock(rqtOp);
 	}
 
-	public void releaseLock(String table, String lockType, String user, Integer tID) {
-		String connectionInfo;
-		try{
-			connectionInfo = getClientHost();
-		} catch (Exception e) {
-			System.err.println("Unable to get connection info on Client, canceling request");
-			return;
-		}
-		System.out.println("Releasing lock on table " + table + " from client " + user + " tId " + tID);
+	public void releaseLock(String table, String lockType, Integer siteNum, Integer tID) {
+		LOGGER.log(Level.INFO, "Releasing lock on table " + table + " from client " + Integer.toString(siteNum) + " tId " + Integer.toString(tID));
+		System.out.println("Releasing lock on table " + table + " from client " + Integer.toString(siteNum) + " tId " + Integer.toString(tID));
 		Operation rqtOp;
 		if (lockType.equals("read")) {
-			rqtOp = new Operation(operationType.READ, "value", 0, "rest");
+			rqtOp = new Operation(operationType.READ, "student", "value", tID, "rest", siteNum);
 		}
 		else {
-			rqtOp = new Operation(operationType.WRITE, "value", 0, "rest");
+			rqtOp = new Operation(operationType.WRITE, "student", "value", tID, "rest", siteNum);
 		}
-		myOnlyLock.releaseLock(rqtOp);
+		List<Operation> locksToBeGranted = new ArrayList<>();
+		locksToBeGranted = myOnlyLock.releaseLock(rqtOp);
+		while (locksToBeGranted.size() > 0) {
+			//call each remoteSites lockObtained()
+		}
 	}
-	public void releaseAllLocks(Integer tID, operationType reason) {
-
-		//TODO IMPLEMENT THIS FUNCTION
-		String connectionInfo;
-		try{
-			connectionInfo = getClientHost();
-		} catch (Exception e) {
-			System.err.println("Unable to get connection info on Client, canceling request");
-			return;
-		}
-		//TODO fill in value and "rest"
-		Operation rqtReleaseOp = new Operation(reason, "value", tID, "rest");
+	public void releaseAllLocks(Integer tID, Integer siteNum, operationType reason) {
+		Operation rqtReleaseOp = new Operation(reason, "student", "value", tID, "rest", siteNum);
 		myOnlyLock.releaseLock(rqtReleaseOp);
 	}
 
@@ -150,7 +151,6 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 				}
 			}	
 			//TODO implement wait for positive response
-			//TODO implement multiple slaves
 		} catch (Exception e) {}
 		//update self
 		Statement st = null;
@@ -164,10 +164,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 			System.out.println("Database exception: " + e.getMessage());
 			e.printStackTrace();
 		} finally {
-			// Close the ResultSet and the Statement variables and close
-			// the connection to the database.
 			try {
-				//TODO implement sending a positive response to master
 				//stub.updateComplete(timestamp, localAddress.toString());
 				st.close();
 				db.close();

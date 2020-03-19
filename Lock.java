@@ -32,11 +32,14 @@ public class Lock {
 		return tableName;
 	}
 
-	public Boolean getLock(Operation requestingOperation) { //TODO eventually not void
+	public Boolean getLock(Operation requestingOperation) { 
+		if (lockAlreadyHeld(requestingOperation))
+			return true;
 		if(requestingOperation.getType() == operationType.READ) {
 			if (isReadLocked) {
 				System.out.println("Read lock is held, you can also read it!");
 				//readQueue.add(requestingOperation);
+				readHeld.add(requestingOperation);
 				numReaders++;
 				return true;
 			}
@@ -48,6 +51,7 @@ public class Lock {
 			else {
 				System.out.println("Lock is available, you've got it!");
 				isReadLocked = true;
+				readQueue.add(requestingOperation);
 				numReaders++;
 				//readHeld.add(requestingOperation);
 				return true;
@@ -62,6 +66,7 @@ public class Lock {
 			else {
 				System.out.println("Write lock is available, you've got it!");
 				isWriteLocked = true;
+				writeHeld.add(requestingOperation);
 				return true;
 			}
 		}
@@ -71,8 +76,36 @@ public class Lock {
 		}
 	}
 
-	public void releaseLock(Operation requestingOperation) {
-		if(requestingOperation.getType() == operationType.READ) {
+	public List<Operation> releaseLock(Operation requestingOperation) {
+		//releases lock from requesting operation
+		//returns list of operations whom locks were granted to
+		List<Operation> locksToBeGranted = new ArrayList<>();
+		Boolean releasedReader = false;
+		Boolean releasedWriter = false;
+		ListIterator<Operation> readLockIter = readHeld.listIterator();
+		while(readLockIter.hasNext()) {
+			//search currently held read locks for transaction ID of operation requesting release
+			int nextOpIndex = readLockIter.nextIndex();
+			Operation nextOp = readLockIter.next();
+			if (nextOp.getTid() == requestingOperation.getTid()) {
+				//found read lock 
+				releasedReader = true;
+				readHeld.remove(nextOpIndex);
+			}
+		}
+		ListIterator<Operation> writeLockIter = writeHeld.listIterator();
+		while(writeLockIter.hasNext()) {
+			//search currently held write locks for transaction ID of operation requesting release
+			int nextOpIndex = writeLockIter.nextIndex();
+			Operation nextOp = writeLockIter.next();
+			if (nextOp.getTid() == requestingOperation.getTid()) {
+				//found read lock 
+				releasedWriter = true;
+				writeHeld.remove(nextOpIndex);
+			}
+		}
+
+		if(releasedReader) {
 			//readQueue.remove(requestingOperation);
 			numReaders--;
 			if(numReaders == 0){
@@ -80,16 +113,14 @@ public class Lock {
 				if(writeQueue.size() > 0) {
 					System.out.println("Last read lock released, issuing write lock");
 					Operation firstWriter = writeQueue.remove(0);
+					locksToBeGranted.add(firstWriter);
 					//TODO send requesting write transaction lock
 					isWriteLocked = true;
 				}
 			}	
 		}
-		else if(requestingOperation.getType() == operationType.WRITE) {
+		else if(releasedWriter) {
 			isWriteLocked = false;
-			//TODO add timestamps to lock requests
-			//TODO Compare timestamps of first reader and first writer 
-			//earliest timestamp gets lock - is this the book algorithm?
 			if(readQueue.size() > 0){
 				System.out.println("Write lock released, issuing read locks to everyone");
 				while (readQueue.size() > 0) {
@@ -99,6 +130,7 @@ public class Lock {
 					numReaders++;
 					isReadLocked = true;
 					Operation firstReader = readQueue.remove(0);
+					locksToBeGranted.add(firstReader);
 				}
 			}
 			else if (writeQueue.size() > 0) {
@@ -106,8 +138,24 @@ public class Lock {
 				//TODO send requesting write transaction lock
 				isWriteLocked = true;
 				Operation firstWriter = writeQueue.remove(0);
+				locksToBeGranted.add(firstWriter);
 			}
 		}
+		return locksToBeGranted;
 	}
-	
+	private Boolean lockAlreadyHeld(Operation requestingOperation) {
+		if (requestingOperation.getType() == operationType.READ) {
+			for (int i = 0; i < readHeld.size(); i++) {
+				if (readHeld.get(i).getTid() == requestingOperation.getTid())
+					return true;
+			}
+			return false;
+		} else {
+			for (int i = 0; i < writeHeld.size(); i++) {
+				if (writeHeld.get(i).getTid() == requestingOperation.getTid())
+					return true;
+			}
+			return false;
+		}
+	}
 }

@@ -6,6 +6,8 @@ import java.sql.*;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.Map;
 import java.io.*;
@@ -30,7 +32,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	}
 
 	private static final long serialVersionUID = 4891404420987536693L;
-
+	private static final Logger LOGGER = Logger.getLogger(RemoteSiteImpl.class.getName());
 	private String testFile;
 	private Properties connectionProps;
 	private String url;
@@ -38,6 +40,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	private CentralSite stub;
 	private Integer remoteSiteNum;
 	private Boolean withinTransaction;
+	private Boolean obtainedLock;
 	List<String> updatesWithinTransaction;
 	Integer activeTransaction;
 	Integer nextTransactionID;
@@ -62,9 +65,13 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			e.printStackTrace();
 			System.exit(-1);
 		}
+		updatesWithinTransaction = new ArrayList<String>();
+		held_locks = new ArrayList<LockInfo>();
+
 		testFile = testFileStr;
 		nextTransactionID = 0;
 		withinTransaction = false;
+		obtainedLock = true;
 		activeTransaction = -1;
 		// Establish connection properties for PostgreSQL database
 		url = "jdbc:postgresql://localhost:5432/remotesite" + Integer.toString(siteNum);
@@ -83,6 +90,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 				siteNum = Integer.parseInt(args[0]);
 				testFileStr = args[1];
 			RemoteSiteImpl obj = new RemoteSiteImpl(siteNum, testFileStr);
+			LOGGER.setUseParentHandlers(false);
 			obj.doWork();
 		} catch(Exception e){}
 	}
@@ -139,17 +147,18 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		ResultSet rs = null;
 		Connection db = null;
 		try {
+			LOGGER.log(Level.INFO, "Read query, site: " + Integer.toString(remoteSiteNum) + " " + queryStr);
 			db = DriverManager.getConnection(url, connectionProps);
 			//System.out.println("The connection to " + url + " was successfully opened.");
 			st = db.createStatement();
-
-			stub.getLock("student", "read", localAddress.toString(), activeTransaction);
+			obtainedLock = stub.getLock(queryStr, remoteSiteNum, activeTransaction);
+			while (!obtainedLock) {}
 			rs = st.executeQuery(queryStr);
 			if (withinTransaction) {
 				//add lock to list of to be released on commit/abort
 				held_locks.add(new LockInfo("student", "read", localAddress.toString(), activeTransaction));
 			} else {
-				stub.releaseLock("student", "read", localAddress.toString(), activeTransaction);
+				stub.releaseLock("student", "read", remoteSiteNum, activeTransaction);
 			}
 			int element = 1;
 
@@ -186,7 +195,8 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			db = DriverManager.getConnection(url, connectionProps);
 			st = db.createStatement();
 			//obtain write lock
-			stub.getLock("student", "write", localAddress.toString(), activeTransaction);
+			obtainedLock = stub.getLock(queryStr, remoteSiteNum, activeTransaction);
+			while (!obtainedLock) {}
 			//do write, commit?
 			st.executeUpdate(queryStr);
 			if (withinTransaction) {
@@ -195,7 +205,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			}
 			else {
 				stub.pushUpdate(queryStr, remoteSiteNum);
-				stub.releaseLock("student", "write", localAddress.toString(), activeTransaction);
+				stub.releaseLock("student", "write", remoteSiteNum, activeTransaction);
 			}
 		} catch (final Exception e) {
 			System.out.println("Database exception: " + e.getMessage());
@@ -221,7 +231,8 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			st = db.createStatement();
 			//obtain write lock
 			//lock needed? YES if lock granularity is by table TODO
-			stub.getLock("student", "write", localAddress.toString(), activeTransaction);
+			obtainedLock = stub.getLock(queryStr, remoteSiteNum, activeTransaction);
+			while (!obtainedLock) {}
 			//do insert, commit?
 			st.executeUpdate(queryStr);
 			if (withinTransaction) {
@@ -230,7 +241,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			}
 			if (!withinTransaction) {
 				stub.pushUpdate(queryStr, remoteSiteNum);
-				stub.releaseLock("student", "write", localAddress.toString(), activeTransaction);
+				stub.releaseLock("student", "write", remoteSiteNum, activeTransaction);
 			}
 		} catch (final Exception e) {
 			System.out.println("Database exception: " + e.getMessage());
@@ -253,11 +264,15 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		activeTransaction = tID;
 		nextTransactionID = nextTransactionID + 1;
 		withinTransaction = true;
-		updatesWithinTransaction.clear();
-		held_locks.clear();
+		if (updatesWithinTransaction.size() > 0)
+			updatesWithinTransaction.clear();
+		if (held_locks.size() > 0)
+			held_locks.clear();
 
 		Statement st = null;
 		Connection db = null;
+		LOGGER.log(Level.INFO, "Begin transaction, site: " + Integer.toString(remoteSiteNum) + " " + queryStr);
+
 		try {
 			db = DriverManager.getConnection(url, connectionProps);
 			st = db.createStatement();
@@ -280,16 +295,18 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		try {
 			db = DriverManager.getConnection(url, connectionProps);
 			st = db.createStatement();
+			LOGGER.log(Level.INFO, "Commit transaction, site: " + Integer.toString(remoteSiteNum) + " " + queryStr);
 			//execute sql
 			st.executeUpdate(queryStr);
 			//push to master one at a time
 			ListIterator<String> queryIter = updatesWithinTransaction.listIterator();
 			while(queryIter.hasNext()) {
 				stub.pushUpdate(queryIter.next(), remoteSiteNum);
-			}
+			}	
 			//stub.pushUpdate(queryStr, remoteSiteNum);
 			//release all locks
-			stub.releaseAllLocks(activeTransaction, operationType.COMMIT);
+			stub.releaseAllLocks(activeTransaction, remoteSiteNum, operationType.COMMIT);
+			withinTransaction = false;
 		} catch (final Exception e) {
 			System.out.println("Database exception: " + e.getMessage());
 			e.printStackTrace();
@@ -311,9 +328,11 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		try {
 			db = DriverManager.getConnection(url, connectionProps);
 			st = db.createStatement();
+			LOGGER.log(Level.INFO, "Rollback transaction, site: " + Integer.toString(remoteSiteNum) + " " + queryStr);
 			st.executeUpdate(queryStr);
 			//release all locks
-			stub.releaseAllLocks(activeTransaction, operationType.ABORT);
+			stub.releaseAllLocks(activeTransaction, remoteSiteNum, operationType.ABORT);
+			withinTransaction = false;
 		} catch (final Exception e) {
 			System.out.println("Database exception: " + e.getMessage());
 			e.printStackTrace();
@@ -334,7 +353,8 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	 *  Currently in SQL
 	 * 
 	 */
-		System.out.println("Slave " + remoteSiteNum + " receiving the update: " + update); //TODO remove
+		LOGGER.log(Level.INFO, "Update from Master, site: " + Integer.toString(remoteSiteNum) + " " + update);
+
 		Statement st = null;
 		Connection db = null;
 		try {
@@ -358,6 +378,10 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 				sqlErr.printStackTrace();
 			}
 		}
+	}
+
+	public void lockObtained(String lockType) {
+		obtainedLock = true;
 	}
 
 	private void queryParser(String queryStr) {
