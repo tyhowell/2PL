@@ -4,7 +4,8 @@
 
 1.	Launch postgresql servers on master and slave sites:
     -	bin/pg_ctl -D data/ restart
-    -	(optional) bin/psql -d test -U remotereader
+    -	(optional) bin/psql -d remotesite0 -U remotereader
+    -   turn autocommit off (\set AUTOCOMMIT off)
 2.	Compile code if changes made:
     -	javac *.java
 3.	RMI nonsense:

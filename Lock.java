@@ -51,7 +51,7 @@ public class Lock {
 			else {
 				System.out.println("Lock is available, you've got it!");
 				isReadLocked = true;
-				readQueue.add(requestingOperation);
+				readHeld.add(requestingOperation);
 				numReaders++;
 				//readHeld.add(requestingOperation);
 				return true;
@@ -79,42 +79,50 @@ public class Lock {
 	public List<Operation> releaseLock(Operation requestingOperation) {
 		//releases lock from requesting operation
 		//returns list of operations whom locks were granted to
+		System.out.println("Lock Manager releasing a lock for TID: " + Integer.toString(requestingOperation.getTid()));
 		List<Operation> locksToBeGranted = new ArrayList<>();
 		Boolean releasedReader = false;
 		Boolean releasedWriter = false;
 		ListIterator<Operation> readLockIter = readHeld.listIterator();
 		while(readLockIter.hasNext()) {
 			//search currently held read locks for transaction ID of operation requesting release
-			int nextOpIndex = readLockIter.nextIndex();
+			//int nextOpIndex = readLockIter.nextIndex();
 			Operation nextOp = readLockIter.next();
 			if (nextOp.getTid() == requestingOperation.getTid()) {
 				//found read lock 
+				System.out.println("Found read lock!");
 				releasedReader = true;
-				readHeld.remove(nextOpIndex);
+				//readHeld.remove(nextOpIndex);
+				readLockIter.remove();
 			}
 		}
 		ListIterator<Operation> writeLockIter = writeHeld.listIterator();
+		System.out.println("writeHeld size: " + writeHeld.size());
 		while(writeLockIter.hasNext()) {
+			System.out.println("Looping write locks rqt TID: " + requestingOperation.getTid());
 			//search currently held write locks for transaction ID of operation requesting release
-			int nextOpIndex = writeLockIter.nextIndex();
+			//int nextOpIndex = writeLockIter.nextIndex();
 			Operation nextOp = writeLockIter.next();
 			if (nextOp.getTid() == requestingOperation.getTid()) {
-				//found read lock 
+				//found write lock 
+				System.out.println("Found write lock!");
 				releasedWriter = true;
-				writeHeld.remove(nextOpIndex);
+				//writeHeld.remove(nextOpIndex);
+				writeLockIter.remove();
 			}
 		}
 
 		if(releasedReader) {
 			//readQueue.remove(requestingOperation);
 			numReaders--;
+			System.out.println("Releasing a reader, writeQueue size: " + Integer.toString(writeQueue.size()));
 			if(numReaders == 0){
 				isReadLocked = false;
 				if(writeQueue.size() > 0) {
 					System.out.println("Last read lock released, issuing write lock");
 					Operation firstWriter = writeQueue.remove(0);
+					writeHeld.add(firstWriter);
 					locksToBeGranted.add(firstWriter);
-					//TODO send requesting write transaction lock
 					isWriteLocked = true;
 				}
 			}	
@@ -126,18 +134,18 @@ public class Lock {
 				while (readQueue.size() > 0) {
 					//iterate readQueue, issuing all read locks 
 					//TODO is this the algorithm from the book?
-					//TODO send requesting read transactions the lock
 					numReaders++;
 					isReadLocked = true;
 					Operation firstReader = readQueue.remove(0);
+					readHeld.add(firstReader);
 					locksToBeGranted.add(firstReader);
 				}
 			}
 			else if (writeQueue.size() > 0) {
 				System.out.println("Write lock released, issuing next write lock");
-				//TODO send requesting write transaction lock
 				isWriteLocked = true;
 				Operation firstWriter = writeQueue.remove(0);
+				writeHeld.add(firstWriter);
 				locksToBeGranted.add(firstWriter);
 			}
 		}

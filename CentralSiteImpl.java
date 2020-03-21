@@ -20,9 +20,11 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 
 	private final Properties connectionProps;
 	private final String url;
+	Connection db;
 	private Lock myOnlyLock;
 	private static final Logger LOGGER = Logger.getLogger(RemoteSiteImpl.class.getName());
 	private Integer numRemoteConnections;
+	private Integer numRequestedDisconnects;
 	List<RemoteSite> remoteSiteList; 
 
 	CentralSiteImpl() throws RemoteException {
@@ -31,7 +33,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 
 		myOnlyLock = new Lock("student");
 		remoteSiteList = new ArrayList<RemoteSite>();
-		LOGGER.setUseParentHandlers(false);
+		//LOGGER.setUseParentHandlers(false);
 		// Loading the Driver
 		try {
 			Class.forName("org.postgresql.Driver");
@@ -46,13 +48,41 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		connectionProps.setProperty("user", "remotereader");
 		connectionProps.setProperty("password", "bb");
 		connectionProps.setProperty("ssl", "false");
+		try {
+			db = DriverManager.getConnection(url, connectionProps);
+		} catch (Exception e) {
+			System.err.println("Unable to connect to database");
+			e.printStackTrace();
+			System.exit(-1);
+		}
+
 		numRemoteConnections = 0;
+		numRequestedDisconnects = 0;
 	}
 
 	public void registerSlave(final RemoteSite myCRemote){
 		remoteSiteList.add(myCRemote);
 		numRemoteConnections++;
 		System.out.println(numRemoteConnections + " remote site connections established");
+	}
+
+	public void disconnectSlave(Integer siteNum){
+		numRequestedDisconnects++;
+		LOGGER.log(Level.INFO, "Disconnect request received from site: " + Integer.toString(siteNum) + " have received _ disconnects: " + Integer.toString(numRequestedDisconnects));
+		if (numRemoteConnections == numRequestedDisconnects) {
+			disconnectAll();
+		}
+	}
+
+	public void disconnectAll() {
+		try {
+			for (Integer i = 0; i < numRemoteConnections; i++) {
+				LOGGER.log(Level.INFO, "Sending disconnect command to site: " + Integer.toString(i) + " " + Integer.toString(numRemoteConnections));
+				remoteSiteList.get(i).disconnect();
+			}	
+			db.close();
+			System.exit(0);
+		} catch (Exception e) {}
 	}
 
 	public Boolean getLock(final String queryStr, Integer siteNum, Integer tID) {
@@ -88,15 +118,32 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		else {
 			rqtOp = new Operation(operationType.WRITE, "student", "value", tID, "rest", siteNum);
 		}
-		List<Operation> locksToBeGranted = new ArrayList<>();
-		locksToBeGranted = myOnlyLock.releaseLock(rqtOp);
-		while (locksToBeGranted.size() > 0) {
-			//call each remoteSites lockObtained()
+		List<Operation> grantedLocks = new ArrayList<>();
+		grantedLocks = myOnlyLock.releaseLock(rqtOp);
+		for (Operation i : grantedLocks) {
+			Integer remoteSiteNum = i.remoteSiteNum;
+			try {
+				LOGGER.log(Level.INFO, "Notifying site number: " + Integer.toString(remoteSiteNum));
+				remoteSiteList.get(remoteSiteNum).lockObtained(i.getType());
+			} catch (Exception e) {
+				LOGGER.log(Level.WARNING, "Unable to notify site of granted lock");
+			}
 		}
 	}
 	public void releaseAllLocks(Integer tID, Integer siteNum, operationType reason) {
 		Operation rqtReleaseOp = new Operation(reason, "student", "value", tID, "rest", siteNum);
-		myOnlyLock.releaseLock(rqtReleaseOp);
+		List<Operation> grantedLocks = new ArrayList<>();
+		grantedLocks = myOnlyLock.releaseLock(rqtReleaseOp);
+		LOGGER.log(Level.INFO, "releasing locks, notifying this many sites: " + Integer.toString(grantedLocks.size()));
+		for (Operation i : grantedLocks) {
+			Integer remoteSiteNum = i.remoteSiteNum;
+			try {
+				LOGGER.log(Level.INFO, "Notifying site number: " + Integer.toString(remoteSiteNum));
+				remoteSiteList.get(remoteSiteNum).lockObtained(i.getType());
+			} catch (Exception e) {
+				LOGGER.log(Level.WARNING, "Unable to notify site of granted lock");
+			}
+		}
 	}
 
 	public List<Map<String, Object>> queryAll() throws RemoteException {
@@ -105,10 +152,10 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		 */
 		Statement st = null;
 		ResultSet rs = null;
-		Connection db = null;
+		//Connection db = null;
 		List<Map<String, Object>> resultList = new ArrayList<Map<String, Object>>();
 		try {
-			db = DriverManager.getConnection(url, connectionProps);
+			//db = DriverManager.getConnection(url, connectionProps);
 			st = db.createStatement();
 			rs = st.executeQuery("SELECT * FROM student");
 
@@ -132,7 +179,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 			try {
 				rs.close();
 				st.close();
-				db.close();
+				//db.close();
 			} catch (final SQLException sqlErr) {
 				sqlErr.printStackTrace();
 			}
@@ -154,9 +201,9 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		} catch (Exception e) {}
 		//update self
 		Statement st = null;
-		Connection db = null;
+		//Connection db = null;
 		try {
-			db = DriverManager.getConnection(url, connectionProps);
+			//db = DriverManager.getConnection(url, connectionProps);
 			System.out.println("The connection to the database was successfully opened.");
 			st = db.createStatement();
 			st.executeUpdate(update);
@@ -167,7 +214,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 			try {
 				//stub.updateComplete(timestamp, localAddress.toString());
 				st.close();
-				db.close();
+				//db.close();
 				System.out.println("Closed connection to the database.");
 			} catch (final SQLException sqlErr) {
 				sqlErr.printStackTrace();
