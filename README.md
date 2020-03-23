@@ -27,9 +27,7 @@
 - [ ] The 2PL implementation must ensure that all updates at all sites are posted in the same order. Furthermore, you must detect/resolve deadlocks. Please refer to section 11.6 in the textbook.
 
 ## To Do
-- [ ] FIGURE OUT WHY t2 doesn't work
 - [ ] Implement finer grained lock granularity
-- [ ] Queueing for locks is not correctly implemented
 - [ ] Lock managers should check if lock already held by transaction
 - [ ] Detect deadlocks (especially if upgrading ones own lock from read to write)
 

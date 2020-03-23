@@ -1,6 +1,7 @@
 /*
   Ty Howell - CS54200 Spring 2020
   TODO: Implement read and write locks, is logic correct on continuing to add read locks?
+  Resource/tutorial utilized for cycle detection: https://www.baeldung.com/java-graph-has-a-cycle
 */
 
 import java.lang.*; 
@@ -90,7 +91,7 @@ public class Lock {
 			Operation nextOp = readLockIter.next();
 			if (nextOp.getTid() == requestingOperation.getTid()) {
 				//found read lock 
-				System.out.println("Found read lock!");
+				//System.out.println("Found read lock!");
 				releasedReader = true;
 				//readHeld.remove(nextOpIndex);
 				readLockIter.remove();
@@ -99,13 +100,13 @@ public class Lock {
 		ListIterator<Operation> writeLockIter = writeHeld.listIterator();
 		System.out.println("writeHeld size: " + writeHeld.size());
 		while(writeLockIter.hasNext()) {
-			System.out.println("Looping write locks rqt TID: " + requestingOperation.getTid());
+			//System.out.println("Looping write locks rqt TID: " + requestingOperation.getTid());
 			//search currently held write locks for transaction ID of operation requesting release
 			//int nextOpIndex = writeLockIter.nextIndex();
 			Operation nextOp = writeLockIter.next();
 			if (nextOp.getTid() == requestingOperation.getTid()) {
 				//found write lock 
-				System.out.println("Found write lock!");
+				//System.out.println("Found write lock!");
 				releasedWriter = true;
 				//writeHeld.remove(nextOpIndex);
 				writeLockIter.remove();
@@ -115,11 +116,11 @@ public class Lock {
 		if(releasedReader) {
 			//readQueue.remove(requestingOperation);
 			numReaders--;
-			System.out.println("Releasing a reader, writeQueue size: " + Integer.toString(writeQueue.size()));
+			//System.out.println("Releasing a reader, writeQueue size: " + Integer.toString(writeQueue.size()));
 			if(numReaders == 0){
 				isReadLocked = false;
 				if(writeQueue.size() > 0) {
-					System.out.println("Last read lock released, issuing write lock");
+					//System.out.println("Last read lock released, issuing write lock");
 					Operation firstWriter = writeQueue.remove(0);
 					writeHeld.add(firstWriter);
 					locksToBeGranted.add(firstWriter);
@@ -130,7 +131,7 @@ public class Lock {
 		else if(releasedWriter) {
 			isWriteLocked = false;
 			if(readQueue.size() > 0){
-				System.out.println("Write lock released, issuing read locks to everyone");
+				//System.out.println("Write lock released, issuing read locks to everyone");
 				while (readQueue.size() > 0) {
 					//iterate readQueue, issuing all read locks 
 					//TODO is this the algorithm from the book?
@@ -142,7 +143,7 @@ public class Lock {
 				}
 			}
 			else if (writeQueue.size() > 0) {
-				System.out.println("Write lock released, issuing next write lock");
+				//System.out.println("Write lock released, issuing next write lock");
 				isWriteLocked = true;
 				Operation firstWriter = writeQueue.remove(0);
 				writeHeld.add(firstWriter);

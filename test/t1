@@ -1,0 +1,5 @@
+r0: BEGIN;
+r0: SELECT * FROM student;
+r0: INSERT INTO student values(5,'Tommy');
+r0: SELECT * FROM student WHERE id < 10;
+r0: COMMIT;

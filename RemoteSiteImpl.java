@@ -144,12 +144,14 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			obtainedReadLock = stub.getLock(queryStr, remoteSiteNum, activeTransaction);
 			while (!obtainedReadLock) {
 				try{
+					LOGGER.log(Level.INFO, "Waiting for read lock");
 					wait();
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt(); 
 					LOGGER.log(Level.SEVERE, "Thread interrupted");
 				}
 			}
+			LOGGER.log(Level.INFO, "Read lock granted");
 			rs = st.executeQuery(queryStr);
 			if (withinTransaction) {
 				//add lock to list of to be released on commit/abort
@@ -196,6 +198,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			obtainedWriteLock = stub.getLock(queryStr, remoteSiteNum, activeTransaction);
 			while (!obtainedWriteLock) {
 				try{
+					LOGGER.log(Level.INFO, "Waiting for write lock");
 					wait();
 				} catch (InterruptedException e) {
 					Thread.currentThread().interrupt(); 
@@ -203,6 +206,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 				}
 			}
 			//do write, commit?
+			LOGGER.log(Level.INFO, "Write lock granted");
 			st.executeUpdate(queryStr);
 			if (withinTransaction) {
 				held_locks.add(new LockInfo("student", "write", localAddress.toString(), activeTransaction));
@@ -228,7 +232,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			}
 		}
 	}
-	private synchronized void executeInsert(String queryStr) {
+	/*private synchronized void executeInsert(String queryStr) {
 		Statement st = null;
 		//Connection db = null;
 		try {
@@ -271,7 +275,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 				sqlErr.printStackTrace();
 			}
 		}
-	}
+	}*/
 	private void executeBegin(String queryStr) {
 		Integer tID = (nextTransactionID * 10) + remoteSiteNum;
 		activeTransaction = tID;
@@ -403,12 +407,13 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 
 	private void queryParser(String queryStr) {
 		//TODO add support for more complex queries?
-		if (queryStr.toLowerCase().contains("select"))
-			executeRead(queryStr);
-		else if (queryStr.toLowerCase().contains("update"))
+		
+		if (queryStr.toLowerCase().contains("update"))
 			executeUpdate(queryStr);
 		else if (queryStr.toLowerCase().contains("insert"))
-			executeInsert(queryStr);
+			executeUpdate(queryStr); //executeInsert(queryStr);
+		else if (queryStr.toLowerCase().contains("select"))
+			executeRead(queryStr);
 		else if (queryStr.toLowerCase().contains("begin"))
 			executeBegin(queryStr);
 		else if (queryStr.toLowerCase().contains("commit"))
