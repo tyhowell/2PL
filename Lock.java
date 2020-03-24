@@ -1,6 +1,5 @@
 /*
   Ty Howell - CS54200 Spring 2020
-  TODO: Implement read and write locks, is logic correct on continuing to add read locks?
   Resource/tutorial utilized for cycle detection: https://www.baeldung.com/java-graph-has-a-cycle
 */
 
@@ -18,6 +17,7 @@ public class Lock {
 	private Boolean isWriteLocked;
 	private Integer numReaders;
 	
+	
 	Lock(String name) {
 		readQueue = new ArrayList<>();
 		writeQueue = new ArrayList<>();
@@ -33,9 +33,18 @@ public class Lock {
 		return tableName;
 	}
 
+	public Integer getCurrentLockHolder() {
+		if (isWriteLocked)
+			return writeHeld.get(0).getTid();
+		else
+			return readHeld.get(0).getTid();
+	}
+
 	public Boolean getLock(Operation requestingOperation) { 
 		if (lockAlreadyHeld(requestingOperation))
 			return true;
+
+
 		if(requestingOperation.getType() == operationType.READ) {
 			if (isReadLocked) {
 				System.out.println("Read lock is held, you can also read it!");
@@ -47,6 +56,7 @@ public class Lock {
 			else if(isWriteLocked) {
 				System.out.println("Write lock is held, you are added to read queue");
 				readQueue.add(requestingOperation);
+
 				return false;
 			}
 			else {
@@ -59,8 +69,12 @@ public class Lock {
 			}
 		}
 		else if (requestingOperation.getType() == operationType.WRITE) {
-			if (isReadLocked || isWriteLocked) {
-				System.out.println("Read or write lock is held, you are added to write queue");
+			if (isReadLocked) {
+				System.out.println("Read lock is held, you are added to write queue");
+				writeQueue.add(requestingOperation);
+				return false;
+			} else if (isWriteLocked) {
+				System.out.println("Write lock is held, you are added to write queue");
 				writeQueue.add(requestingOperation);
 				return false;
 			}
@@ -163,6 +177,13 @@ public class Lock {
 			for (int i = 0; i < writeHeld.size(); i++) {
 				if (writeHeld.get(i).getTid() == requestingOperation.getTid())
 					return true;
+			}
+			for (int i = 0; i < readHeld.size(); i++) {
+				if (readHeld.get(i).getTid() == requestingOperation.getTid()) {
+					isWriteLocked = true;
+					writeHeld.add(requestingOperation);
+					return true;
+				}
 			}
 			return false;
 		}

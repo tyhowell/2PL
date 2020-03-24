@@ -22,10 +22,13 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	private final String url;
 	Connection db;
 	private Lock myOnlyLock;
+	private List<Lock> lockList;
+	private HashMap<String, Integer> tableNameToLockListIndex;
 	private static final Logger LOGGER = Logger.getLogger(RemoteSiteImpl.class.getName());
 	private Integer numRemoteConnections;
 	private Integer numRequestedDisconnects;
 	List<RemoteSite> remoteSiteList; 
+	private GlobalWaitForGraph globalWaitForGraph;
 
 	CentralSiteImpl() throws RemoteException {
 		// constructor for parent class
@@ -33,6 +36,8 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 
 		myOnlyLock = new Lock("student");
 		remoteSiteList = new ArrayList<RemoteSite>();
+		globalWaitForGraph = new GlobalWaitForGraph();
+		tableNameToLockListIndex = new HashMap<>();
 		//LOGGER.setUseParentHandlers(false);
 		// Loading the Driver
 		try {
@@ -58,6 +63,36 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 
 		numRemoteConnections = 0;
 		numRequestedDisconnects = 0;
+		initializeLocks();
+	}
+
+	private void initializeLocks() {
+		lockList = new ArrayList<>();
+		Statement st = null;
+		ResultSet rs = null;
+		Integer counter = 0;
+		try {
+			st = db.createStatement();
+			String selectAllTables = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'";
+			rs = st.executeQuery(selectAllTables);
+			while (rs.next()) {
+				String tableName = rs.getString("tablename");
+				tableNameToLockListIndex.put(tableName, counter);
+				counter++;
+				lockList.add(new Lock(tableName));
+			}
+			LOGGER.log(Level.INFO, "Initialized locks for " + lockList.size() + " tables");
+		} catch (final Exception e) {
+			System.out.println("Database exception: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			try {
+				st.close();
+				rs.close();
+			} catch (final SQLException sqlErr) {
+				sqlErr.printStackTrace();
+			}
+		}
 	}
 
 	public void registerSlave(final RemoteSite myCRemote){
@@ -105,7 +140,24 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		else {
 			rqtOp = new Operation(operationType.WRITE, "student", "value", tID, "rest", siteNum);
 		}
-		return myOnlyLock.getLock(rqtOp);
+		if (!globalWaitForGraph.transactionExists(tID)) {
+			//node does not exist in gwfg yet
+			ConcurrentLockNode newNode = new ConcurrentLockNode(tID);
+			globalWaitForGraph.add_node(newNode);
+		}
+		Boolean lockObtained = myOnlyLock.getLock(rqtOp);
+		//return myOnlyLock.getLock(rqtOp);
+		if (!lockObtained) {
+			Integer currentLockHolderTID = myOnlyLock.getCurrentLockHolder();
+			globalWaitForGraph.add_dependency(tID, currentLockHolderTID);
+			if (globalWaitForGraph.hasDeadlock()) {
+				System.out.println("Deadlock detected");
+				//TODO action to remove deadlock, maybe also write a function to check for deadlocks here?
+			} else {
+				System.out.println("No deadlock detected");
+			}
+		}
+		return lockObtained;
 	}
 
 	public void releaseLock(String table, String lockType, Integer siteNum, Integer tID) {

@@ -3,7 +3,7 @@ import java.util.*;
 
 public class ConcurrentLockNode {
     //Every transaction has one
-    //Initiialized on BEGIN or First attempted lock?
+    //Initiialized on First attempted lock?
     //and immediately added to GWFG
     //If lock is successfully obtained -> do nothing
     //If not (added to lock queue) update node (sitting in GWFG list) by adding

@@ -27,6 +27,7 @@
 - [ ] The 2PL implementation must ensure that all updates at all sites are posted in the same order. Furthermore, you must detect/resolve deadlocks. Please refer to section 11.6 in the textbook.
 
 ## To Do
+- [ ] IN THE MIDDLE OF IMPLEMENTING MULTIPLE LOCKS
 - [ ] Implement finer grained lock granularity
 - [ ] Lock managers should check if lock already held by transaction
 - [ ] Detect deadlocks (especially if upgrading ones own lock from read to write)
