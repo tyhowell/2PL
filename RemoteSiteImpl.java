@@ -434,6 +434,9 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	private void clearAndCopy() {
 		/* Deletes all rows from table student
 		*  Has master query all and inserts all results into table
+		*  TODO first query to get all of central site tables, then create those tables
+		*    at remote site if don't already exist
+		*    then copy all data from all tables to remote site
 		*/
 		Statement st = null;
 		List<Map<String, Object>> resultList = new ArrayList<Map<String, Object>>();
@@ -443,14 +446,22 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			st = db.createStatement();
 			//clear table
 			st.executeUpdate("DELETE FROM student");
+			st.executeUpdate("DELETE FROM job");
 			//get resultset from central site
-			resultList = stub.queryAll();
+			resultList = stub.queryAll("student");
 			Map<String, Object> row = null;	
 			for (int i = 0; i < resultList.size(); i++) {
 				row = resultList.get(i);
 				String studentID = row.get("id").toString();
 				String studentName = row.get("name").toString();
 				st.executeUpdate("INSERT INTO student values (" + studentID + ", '" + studentName + "')");
+			}
+			resultList = stub.queryAll("job");
+			for (int i = 0; i < resultList.size(); i++) {
+				row = resultList.get(i);
+				String jobID = row.get("job_id").toString();
+				String jobName = row.get("job_name").toString();
+				st.executeUpdate("INSERT INTO job values (" + jobID + ", '" + jobName + "')");
 			}
 			
 		} catch (final Exception e) {

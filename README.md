@@ -29,7 +29,8 @@
 ## To Do
 - [ ] IN THE MIDDLE OF IMPLEMENTING MULTIPLE LOCKS
 - [ ] Implement finer grained lock granularity
-- [ ] Lock managers should check if lock already held by transaction
+- [ ] Support flexible/new tables
+- [ ] Support multi-table queries (or add to a limitations page in presentation)
 - [ ] Detect deadlocks (especially if upgrading ones own lock from read to write)
 
 ## To Test
@@ -37,3 +38,4 @@
 - [ ] Transactions, releaseAllLocks, Commit, rollback
 ## Notes
 - PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3
+- isn't currently connecting because I changed data/postgresql.conf and pg_hba.conf (commented out * )

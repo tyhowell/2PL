@@ -2,8 +2,9 @@
 r0: BEGIN;
 r0: SELECT * FROM student;
 r1: BEGIN;
-r1: INSERT INTO student values(17,'Robby');
-r0: INSERT INTO student values(18,'COVID');
+r1: SELECT * FROM job;
+r1: INSERT INTO student values(8,'Sleep');
+r0: INSERT INTO job values(4,'Mailman');
 r1: COMMIT;
 r0: COMMIT;
 r0: SHUTDOWN

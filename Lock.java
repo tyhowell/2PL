@@ -34,6 +34,8 @@ public class Lock {
 	}
 
 	public Integer getCurrentLockHolder() {
+		System.out.println("Get current lock holder, iswritelocked isreadlocked writeheldsize readheldsize");
+		System.out.println(isWriteLocked + " " + isReadLocked + " " + writeHeld.size() + " " + readHeld.size());
 		if (isWriteLocked)
 			return writeHeld.get(0).getTid();
 		else

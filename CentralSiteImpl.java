@@ -21,7 +21,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	private final Properties connectionProps;
 	private final String url;
 	Connection db;
-	private Lock myOnlyLock;
+	//private Lock myOnlyLock;
 	private List<Lock> lockList;
 	private HashMap<String, Integer> tableNameToLockListIndex;
 	private static final Logger LOGGER = Logger.getLogger(RemoteSiteImpl.class.getName());
@@ -34,7 +34,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		// constructor for parent class
 		super();
 
-		myOnlyLock = new Lock("student");
+		//myOnlyLock = new Lock("student");
 		remoteSiteList = new ArrayList<RemoteSite>();
 		globalWaitForGraph = new GlobalWaitForGraph();
 		tableNameToLockListIndex = new HashMap<>();
@@ -122,33 +122,38 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 
 	public Boolean getLock(final String queryStr, Integer siteNum, Integer tID) {
 		// returns true if lock obtained, else returns false
-		LOGGER.log(Level.INFO, "lock requested for query: " + queryStr + " from " + Integer.toString(siteNum) + " tID: " + Integer.toString(tID));
-		//System.out.println("lock requested for query: " + queryStr + " from " + Integer.toString(siteNum) + " tID: " + Integer.toString(tID));
 		// query to see if lock is available
 		Operation rqtOp;
-		String queryType = "read";
-		if (queryStr.toLowerCase().contains("select"))
-			queryType = "read";
-		else if (queryStr.toLowerCase().contains("update"))
-			queryType = "write";
-		else if (queryStr.toLowerCase().contains("insert"))
-			queryType = "write";
+		Integer tableIndex = 0;
+		for (int i = 0; i < lockList.size(); i++) {
+			//loop tables to determine which lock to obtain
+			//TODO only supports single table queries
+			if (queryStr.toLowerCase().contains(lockList.get(i).getName()))
+				tableIndex = i;
+		}
+		LOGGER.log(Level.INFO, "lock requested for query: " + queryStr + " from remotesite" 
+			+ Integer.toString(siteNum) + " tID: " + Integer.toString(tID) 
+			+ ", query is on table: " + lockList.get(tableIndex).getName());
 
-		if(queryType.equals("read")) {
-			rqtOp = new Operation(operationType.READ, "student", "value", tID, "rest", siteNum);
-		}
+		if (queryStr.toLowerCase().contains("update") || queryStr.toLowerCase().contains("insert"))
+			rqtOp = new Operation(operationType.WRITE, lockList.get(tableIndex).getName(), "value", tID, "rest", siteNum);
+		else if (queryStr.toLowerCase().contains("select"))
+			rqtOp = new Operation(operationType.READ, lockList.get(tableIndex).getName(), "value", tID, "rest", siteNum);
 		else {
-			rqtOp = new Operation(operationType.WRITE, "student", "value", tID, "rest", siteNum);
+			System.err.println("Illegal or unsupported SQL syntax");
+			return false;
 		}
+		
 		if (!globalWaitForGraph.transactionExists(tID)) {
 			//node does not exist in gwfg yet
 			ConcurrentLockNode newNode = new ConcurrentLockNode(tID);
 			globalWaitForGraph.add_node(newNode);
 		}
-		Boolean lockObtained = myOnlyLock.getLock(rqtOp);
+		//Boolean lockObtained = myOnlyLock.getLock(rqtOp);
+		Boolean lockObtained = lockList.get(tableIndex).getLock(rqtOp);
 		//return myOnlyLock.getLock(rqtOp);
 		if (!lockObtained) {
-			Integer currentLockHolderTID = myOnlyLock.getCurrentLockHolder();
+			Integer currentLockHolderTID = lockList.get(tableIndex).getCurrentLockHolder();//myOnlyLock.getCurrentLockHolder();
 			globalWaitForGraph.add_dependency(tID, currentLockHolderTID);
 			if (globalWaitForGraph.hasDeadlock()) {
 				System.out.println("Deadlock detected");
@@ -165,13 +170,14 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		System.out.println("Releasing lock on table " + table + " from client " + Integer.toString(siteNum) + " tId " + Integer.toString(tID));
 		Operation rqtOp;
 		if (lockType.equals("read")) {
-			rqtOp = new Operation(operationType.READ, "student", "value", tID, "rest", siteNum);
+			rqtOp = new Operation(operationType.READ, table, "value", tID, "rest", siteNum);
 		}
 		else {
-			rqtOp = new Operation(operationType.WRITE, "student", "value", tID, "rest", siteNum);
+			rqtOp = new Operation(operationType.WRITE, table, "value", tID, "rest", siteNum);
 		}
 		List<Operation> grantedLocks = new ArrayList<>();
-		grantedLocks = myOnlyLock.releaseLock(rqtOp);
+		Integer tableIndex = tableNameToLockListIndex.get(table);
+		grantedLocks = lockList.get(tableIndex).releaseLock(rqtOp);//myOnlyLock.releaseLock(rqtOp);
 		for (Operation i : grantedLocks) {
 			Integer remoteSiteNum = i.remoteSiteNum;
 			try {
@@ -183,9 +189,18 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		}
 	}
 	public void releaseAllLocks(Integer tID, Integer siteNum, operationType reason) {
+		//TODO change student to be correct tableName
 		Operation rqtReleaseOp = new Operation(reason, "student", "value", tID, "rest", siteNum);
 		List<Operation> grantedLocks = new ArrayList<>();
-		grantedLocks = myOnlyLock.releaseLock(rqtReleaseOp);
+		//attempt to release each lock TODO not the best way to do it
+		for (int i = 0; i < lockList.size(); i++) {
+			List<Operation> tempGrantedLocks = new ArrayList<>();
+			tempGrantedLocks = lockList.get(i).releaseLock(rqtReleaseOp);
+			for (int j = 0; j < tempGrantedLocks.size(); j++) {
+				grantedLocks.add(tempGrantedLocks.get(j));
+			}
+		}
+		//grantedLocks = myOnlyLock.releaseLock(rqtReleaseOp);
 		LOGGER.log(Level.INFO, "releasing locks, notifying this many sites: " + Integer.toString(grantedLocks.size()));
 		for (Operation i : grantedLocks) {
 			Integer remoteSiteNum = i.remoteSiteNum;
@@ -198,7 +213,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		}
 	}
 
-	public List<Map<String, Object>> queryAll() throws RemoteException {
+	public List<Map<String, Object>> queryAll(String tableName) throws RemoteException {
 		/* retrieves all rows from table student
 		 * returns results in List
 		 */
@@ -209,7 +224,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		try {
 			//db = DriverManager.getConnection(url, connectionProps);
 			st = db.createStatement();
-			rs = st.executeQuery("SELECT * FROM student");
+			rs = st.executeQuery("SELECT * FROM " + tableName);
 
 			Map<String, Object> row = null;	
 			ResultSetMetaData metaData = rs.getMetaData();
