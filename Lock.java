@@ -33,13 +33,19 @@ public class Lock {
 		return tableName;
 	}
 
-	public Integer getCurrentLockHolder() {
+	public List<Integer> getCurrentLockHolder() {
+		// returns current lock holder's transaction ID and site number
+		List<Integer> currentLockInfo = new ArrayList<>();
 		System.out.println("Get current lock holder, iswritelocked isreadlocked writeheldsize readheldsize");
 		System.out.println(isWriteLocked + " " + isReadLocked + " " + writeHeld.size() + " " + readHeld.size());
-		if (isWriteLocked)
-			return writeHeld.get(0).getTid();
-		else
-			return readHeld.get(0).getTid();
+		if (isWriteLocked) {
+			currentLockInfo.add(writeHeld.get(0).getTid());
+			currentLockInfo.add(writeHeld.get(0).remoteSiteNum);	
+		} else {
+			currentLockInfo.add(readHeld.get(0).getTid());
+			currentLockInfo.add(readHeld.get(0).remoteSiteNum);
+		}
+		return currentLockInfo;
 	}
 
 	public Boolean getLock(Operation requestingOperation) { 

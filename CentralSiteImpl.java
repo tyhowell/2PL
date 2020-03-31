@@ -153,11 +153,30 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		Boolean lockObtained = lockList.get(tableIndex).getLock(rqtOp);
 		//return myOnlyLock.getLock(rqtOp);
 		if (!lockObtained) {
-			Integer currentLockHolderTID = lockList.get(tableIndex).getCurrentLockHolder();//myOnlyLock.getCurrentLockHolder();
-			globalWaitForGraph.add_dependency(tID, currentLockHolderTID);
+			List<Integer> currentLockHolder = lockList.get(tableIndex).getCurrentLockHolder();//myOnlyLock.getCurrentLockHolder();
+			globalWaitForGraph.add_dependency(tID, currentLockHolder.get(0));
 			if (globalWaitForGraph.hasDeadlock()) {
 				System.out.println("Deadlock detected");
-				//TODO action to remove deadlock, maybe also write a function to check for deadlocks here?
+				//release all locks on whichever transaction has the least number of locks (releaseAllLocks)
+				Integer numLocksRequester = numLocksForTransaction(tID);
+				Integer numLocksHolder = numLocksForTransaction(currentLockHolder.get(0));
+				Integer tIDtoAbort = tID;
+				Integer siteNumToAbort = siteNum;
+				if (numLocksRequester > numLocksHolder) {
+					// if lock requester currently holds more locks than lockHolder, choose
+					// to abort current lock holder transaction
+					tIDtoAbort = currentLockHolder.get(0);
+					siteNumToAbort = currentLockHolder.get(1);
+				}
+				releaseAllLocks(tIDtoAbort, siteNumToAbort, operationType.ABORT);
+				//give released lock to non-aborted transaction - automatic via releaseAllLocks
+				//inform the remoteSite to abort/rollback transaction
+				try {
+					remoteSiteList.get(siteNumToAbort).abortCurrentTransaction();
+				} catch (Exception e) {
+					LOGGER.log(Level.WARNING, "Unable to notify site of aborted transaction");
+				}
+				//remoteSite repeat transaction
 			} else {
 				System.out.println("No deadlock detected");
 			}
@@ -287,5 +306,14 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 				sqlErr.printStackTrace();
 			}
 		}
+	}
+
+	private Integer numLocksForTransaction(Integer tID) {
+		Integer numLocks = 0;
+		for (int i = 0; i < lockList.size(); i++) {
+			if (lockList.get(i).getCurrentLockHolder().get(0) == tID)
+				numLocks++;
+		}
+		return numLocks;
 	}
 }

@@ -37,33 +37,50 @@ public class GlobalWaitForGraph {
             return;
         }
         graph_nodes.get(tid_has_dependency_index).setDependency(graph_nodes.get(tid_has_lock_index));
-        System.out.print("Adding dependency, TID: " + tid_has_dependency + " depends on TID: " + tid_has_lock);
+        System.out.println("Adding dependency, TID: " + tid_has_dependency + " depends on TID: " + tid_has_lock);
     }
 
     public Boolean hasDeadlock() {
         //recursive start of DFS traversal of GWFG
         for (ConcurrentLockNode dependencyNode : graph_nodes) {
+            System.out.println("Initial deadlock call, TID: " + dependencyNode.myTID);
             if (!dependencyNode.traversed && hasDeadlock(dependencyNode)) {
                 return true;
             }
         }
+
+        //reset all traversed/beingTraversed to false
+        for (ConcurrentLockNode dependencyNode : graph_nodes) {
+            dependencyNode.beingTraversed = false;
+            dependencyNode.traversed = false;
+        }
+
         return false;
     }
     public Boolean hasDeadlock(ConcurrentLockNode sourceNode) {
         //continued recursive DFS traversal of GWFG
         sourceNode.beingTraversed = true;
+        Integer sourceNodeIndex = tid_to_graph_index.get(sourceNode.myTID);
+        graph_nodes.get(sourceNodeIndex).beingTraversed = true;
 
+        System.out.println("hasDeadlock call, TID: " + sourceNode.myTID + " has the following dependencies: ");
         for (ConcurrentLockNode dependencyNode : sourceNode.dependentOnTheseNodes) {
-            if (dependencyNode.beingTraversed == true) {
+            System.out.println("dependencies loop, TID: " + dependencyNode.myTID);
+            Integer dependencyNodeIndex = tid_to_graph_index.get(dependencyNode.myTID);
+            //if (dependencyNode.beingTraversed == true) {
+            if (graph_nodes.get(dependencyNodeIndex).beingTraversed == true) {
                 // deadlock detected
                 return true;
-            } else if (!dependencyNode.traversed && hasDeadlock(dependencyNode)) {
+            //} else if (!dependencyNode.traversed && hasDeadlock(dependencyNode)) {
+            } else if (!graph_nodes.get(dependencyNodeIndex).traversed && hasDeadlock(dependencyNode)) {
                 return true;
             }
         }
 
         sourceNode.beingTraversed = false;
+        graph_nodes.get(sourceNodeIndex).beingTraversed = false;
         sourceNode.traversed = true;
+        graph_nodes.get(sourceNodeIndex).traversed = true;
         return false;
     }
 }

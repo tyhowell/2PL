@@ -18,7 +18,7 @@
     -   java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 1 t1
 
 ## Metrics
-- [ ] Consider at least four sites, each site with a copy of the database. Assume a fully replicated database.
+- [x] Consider at least four sites, each site with a copy of the database. Assume a fully replicated database.
 - [x] Use a non-distibuted database on each site, such as SQLite, PostgreSQL.
 - [x] Use a centralized control for global decisions with a Central Site. The lock table has to be store at the Central Site.
 - [x] All transactions arriving at different sites are sent to the Central Site. Queues for requesting and releasing locks will be maintained at the Central Site.
@@ -27,7 +27,7 @@
 - [ ] The 2PL implementation must ensure that all updates at all sites are posted in the same order. Furthermore, you must detect/resolve deadlocks. Please refer to section 11.6 in the textbook.
 
 ## To Do
-- [ ] IN THE MIDDLE OF IMPLEMENTING MULTIPLE LOCKS
+- [ ] IN THE MIDDLE OF RETRYING TRANSACTION IF ABORTED FOR DEADLOCK (MIMIC lockObtained())
 - [ ] Implement finer grained lock granularity
 - [ ] Support flexible/new tables
 - [ ] Support multi-table queries (or add to a limitations page in presentation)
@@ -35,7 +35,5 @@
 
 ## To Test
 - [ ] Lock manager lock already held by same tid
-- [ ] Transactions, releaseAllLocks, Commit, rollback
 ## Notes
 - PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3
-- isn't currently connecting because I changed data/postgresql.conf and pg_hba.conf (commented out * )

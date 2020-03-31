@@ -364,6 +364,28 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		}
 		withinTransaction = false;
 	}
+
+	public void abortCurrentTransaction() {
+		LOGGER.log(Level.INFO, "Rollback current transaction, site: " + Integer.toString(remoteSiteNum));
+		Statement st = null;
+		try {
+			st = db.createStatement();
+			st.executeUpdate("ROLLBACK");
+			withinTransaction = false;
+		} catch (final Exception e) {
+			System.out.println("Database exception: " + e.getMessage());
+			e.printStackTrace();
+		} finally {
+			try {
+				st.close();
+			} catch (final SQLException sqlErr) {
+				sqlErr.printStackTrace();
+			}
+		}
+		withinTransaction = false;
+		//TODO IMPLEMENT REDO of transaction after abort!!! Ty 3/30
+		System.exit(0);
+	}
 	
 	public void receiveUpdate(String update) {
 	/*  Updates come from central site
