@@ -16,7 +16,7 @@ import java.io.*;
 public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{ 
 
 	/**
-	 *
+	 *  Idea for shutting down with new thread came from https://stackoverflow.com/questions/241034/how-to-remotely-shutdown-a-java-rmi-server
 	 */
 	private class LockInfo {
 		public String item;
@@ -40,13 +40,17 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	private CentralSite stub;
 	private Integer remoteSiteNum;
 	private Boolean withinTransaction;
+	private Boolean currentTransactionAborted;
 	private Boolean obtainedReadLock;
 	private Boolean obtainedWriteLock;
 	private Connection db;
-	List<String> updatesWithinTransaction;
-	Integer activeTransaction;
-	Integer nextTransactionID;
-	List<LockInfo> held_locks;
+	private List<String> updatesWithinTransaction;
+	//private List<String> allQueriesWithinTransaction;
+	private Integer activeTransaction;
+	private Integer nextTransactionID;
+	private List<LockInfo> held_locks;
+	private Integer beginTransactionInputFileIndex;
+	private Integer currentQueryInputFileIndex;
 
 	RemoteSiteImpl(int siteNum, String testFileStr) throws RemoteException {
 		// constructor for parent class
@@ -68,14 +72,18 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			System.exit(-1);
 		}
 		updatesWithinTransaction = new ArrayList<String>();
+		//allQueriesWithinTransaction = new ArrayList<String>();
 		held_locks = new ArrayList<LockInfo>();
 
 		testFile = testFileStr;
 		nextTransactionID = 0;
 		withinTransaction = false;
+		currentTransactionAborted = false;
 		obtainedReadLock = true;
 		obtainedWriteLock = true;
 		activeTransaction = -1;
+		beginTransactionInputFileIndex = 0;
+		currentQueryInputFileIndex = 0;
 		// Establish connection properties for PostgreSQL database
 		url = "jdbc:postgresql://localhost:5432/remotesite" + Integer.toString(siteNum);
 		remoteSiteNum = siteNum;
@@ -117,15 +125,33 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			BufferedReader br = new BufferedReader(new FileReader(file)); 
 			String st; 
 			String queryForMe = "r" + Integer.toString(remoteSiteNum) + ":";
+			List<String> inputFile = new ArrayList<>();
 			while ((st = br.readLine()) != null) {
-				if (st.contains(queryForMe)) {
-					queryParser(st.replaceFirst(queryForMe, ""));
+				inputFile.add(st);
+			}
+			br.close();	
+			while (currentQueryInputFileIndex < inputFile.size()) {
+				currentQueryInputFileIndex++;
+				//since index gets incremented early, must substract 1 to be on 'current' index
+				if (inputFile.get(currentQueryInputFileIndex - 1).contains(queryForMe)) {
+					/* if (withinTransaction)
+						allQueriesWithinTransaction.add(inputFile.get(currentQueryInputFileIndex).replaceFirst(queryForMe, "")); */
+					queryParser(inputFile.get(currentQueryInputFileIndex - 1).replaceFirst(queryForMe, ""));
 					//5 second sleep to observe transaction locking
 					Thread.sleep(5000);
+					
+					//if alerted to abort transaction
+/* 					Integer counter = 0;
+					while (currentTransactionAborted && counter != allQueriesWithinTransaction.size()) {
+						LOGGER.log(Level.INFO, "Rolledback transaction, reattempt: " + allQueriesWithinTransaction.get(counter));
+						//loop back and for each allQueriesWithinTransaction
+						//call queryParser on each 
+						queryParser(allQueriesWithinTransaction.get(counter));
+						counter++;
+						Thread.sleep(5000);
+					} */
 				}	
 			} 
-			br.close();
-			//db.close();
 		} catch(Exception e){
 			System.err.println(e);
 			e.printStackTrace();
@@ -142,6 +168,12 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			System.out.println("Read query, site: " + Integer.toString(remoteSiteNum) + " " + queryStr);
 			st = db.createStatement();
 			obtainedReadLock = stub.getLock(queryStr, remoteSiteNum, activeTransaction);
+			if (currentTransactionAborted) {
+				st.close();
+				//reset Boolean
+				currentTransactionAborted = false;
+				return;
+			}
 			while (!obtainedReadLock) {
 				try{
 					LOGGER.log(Level.INFO, "Waiting for read lock");
@@ -196,6 +228,12 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			st = db.createStatement();
 			//obtain write lock
 			obtainedWriteLock = stub.getLock(queryStr, remoteSiteNum, activeTransaction);
+			if (currentTransactionAborted) {
+				st.close();
+				//reset Boolean
+				currentTransactionAborted = false;
+				return;
+			}
 			while (!obtainedWriteLock) {
 				try{
 					LOGGER.log(Level.INFO, "Waiting for write lock");
@@ -281,6 +319,8 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		activeTransaction = tID;
 		nextTransactionID = nextTransactionID + 1;
 		withinTransaction = true;
+		//allQueriesWithinTransaction.add(queryStr);
+
 		if (updatesWithinTransaction.size() > 0)
 			updatesWithinTransaction.clear();
 		if (held_locks.size() > 0)
@@ -366,7 +406,8 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 	}
 
 	public void abortCurrentTransaction() {
-		LOGGER.log(Level.INFO, "Rollback current transaction, site: " + Integer.toString(remoteSiteNum));
+		LOGGER.log(Level.INFO, "Rollback current transaction, site: " + Integer.toString(remoteSiteNum) 
+			+ " file index set back to " + Integer.toString(beginTransactionInputFileIndex));
 		Statement st = null;
 		try {
 			st = db.createStatement();
@@ -382,9 +423,11 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 				sqlErr.printStackTrace();
 			}
 		}
-		withinTransaction = false;
+		//withinTransaction = false;
+		currentTransactionAborted = true;
+		currentQueryInputFileIndex = beginTransactionInputFileIndex;
 		//TODO IMPLEMENT REDO of transaction after abort!!! Ty 3/30
-		System.exit(0);
+		//System.exit(0);
 	}
 	
 	public void receiveUpdate(String update) {
@@ -436,8 +479,10 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			executeUpdate(queryStr); //executeInsert(queryStr);
 		else if (queryStr.toLowerCase().contains("select"))
 			executeRead(queryStr);
-		else if (queryStr.toLowerCase().contains("begin"))
+		else if (queryStr.toLowerCase().contains("begin")) {
+			beginTransactionInputFileIndex = currentQueryInputFileIndex - 1;
 			executeBegin(queryStr);
+		}
 		else if (queryStr.toLowerCase().contains("commit"))
 			executeCommit(queryStr);
 		else if (queryStr.toLowerCase().contains("rollback"))
@@ -506,6 +551,17 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 			db.close();
 			Naming.unbind("rmi://localhost:5000/sonoo");
 		} catch (Exception e) {}
-		System.exit(0);
+		new Thread() {
+			@Override
+			public void run() {
+			  System.out.print("Shutting down...");
+			  try {
+				sleep(2000);
+			  } catch (Exception e) {}
+			  System.out.println("done");
+			  System.exit(0);
+			}
+		  }.start();
+		//System.exit(0);
 	}
 }

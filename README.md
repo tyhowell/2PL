@@ -24,16 +24,18 @@
 - [x] All transactions arriving at different sites are sent to the Central Site. Queues for requesting and releasing locks will be maintained at the Central Site.
 - [x] Processing must take place at the site where the transaction is submitted. Locks will be released after waiting on the database at the centralized site. Updates for other sites will be sent and they may arrive in a different order.
 - [x] You may implement the algorithm of section 11.3.1 of our text book (Ozsu) or a variation of it.
-- [ ] The 2PL implementation must ensure that all updates at all sites are posted in the same order. Furthermore, you must detect/resolve deadlocks. Please refer to section 11.6 in the textbook.
+- [x] The 2PL implementation must ensure that all updates at all sites are posted in the same order. Furthermore, you must detect/resolve deadlocks. Please refer to section 11.6 in the textbook.
 
 ## To Do
 - [ ] IN THE MIDDLE OF RETRYING TRANSACTION IF ABORTED FOR DEADLOCK (MIMIC lockObtained())
 - [ ] Implement finer grained lock granularity
 - [ ] Support flexible/new tables
 - [ ] Support multi-table queries (or add to a limitations page in presentation)
-- [ ] Detect deadlocks (especially if upgrading ones own lock from read to write)
+- [ ] Complete all TODOs
+- [ ] Remove all unnecessary comments, printlns, 
 
 ## To Test
 - [ ] Lock manager lock already held by same tid
+- [ ] More rigorous deadlock test cases
 ## Notes
 - PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3

@@ -102,6 +102,7 @@ public class Lock {
 	public List<Operation> releaseLock(Operation requestingOperation) {
 		//releases lock from requesting operation
 		//returns list of operations whom locks were granted to
+		//also removes transaction from any queues (important for rollingback a transaction)
 		System.out.println("Lock Manager releasing a lock for TID: " + Integer.toString(requestingOperation.getTid()));
 		List<Operation> locksToBeGranted = new ArrayList<>();
 		Boolean releasedReader = false;
@@ -132,6 +133,22 @@ public class Lock {
 				releasedWriter = true;
 				//writeHeld.remove(nextOpIndex);
 				writeLockIter.remove();
+			}
+		}
+		ListIterator<Operation> writeQueueIter = writeQueue.listIterator();
+		while(writeQueueIter.hasNext()) {
+			Operation nextOp = writeQueueIter.next();
+			if (nextOp.getTid() == requestingOperation.getTid()) {
+				//found transaction in write queue
+				writeQueueIter.remove();
+			}
+		}
+		ListIterator<Operation> readQueueIter = readQueue.listIterator();
+		while(readQueueIter.hasNext()) {
+			Operation nextOp = readQueueIter.next();
+			if (nextOp.getTid() == requestingOperation.getTid()) {
+				//found transaction in write queue
+				readQueueIter.remove();
 			}
 		}
 

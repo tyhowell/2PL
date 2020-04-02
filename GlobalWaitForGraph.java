@@ -43,7 +43,7 @@ public class GlobalWaitForGraph {
     public Boolean hasDeadlock() {
         //recursive start of DFS traversal of GWFG
         for (ConcurrentLockNode dependencyNode : graph_nodes) {
-            System.out.println("Initial deadlock call, TID: " + dependencyNode.myTID);
+            //System.out.println("Initial deadlock call, TID: " + dependencyNode.myTID);
             if (!dependencyNode.traversed && hasDeadlock(dependencyNode)) {
                 return true;
             }
@@ -63,9 +63,9 @@ public class GlobalWaitForGraph {
         Integer sourceNodeIndex = tid_to_graph_index.get(sourceNode.myTID);
         graph_nodes.get(sourceNodeIndex).beingTraversed = true;
 
-        System.out.println("hasDeadlock call, TID: " + sourceNode.myTID + " has the following dependencies: ");
+        //System.out.println("hasDeadlock call, TID: " + sourceNode.myTID + " has the following dependencies: ");
         for (ConcurrentLockNode dependencyNode : sourceNode.dependentOnTheseNodes) {
-            System.out.println("dependencies loop, TID: " + dependencyNode.myTID);
+            //System.out.println("dependencies loop, TID: " + dependencyNode.myTID);
             Integer dependencyNodeIndex = tid_to_graph_index.get(dependencyNode.myTID);
             //if (dependencyNode.beingTraversed == true) {
             if (graph_nodes.get(dependencyNodeIndex).beingTraversed == true) {
