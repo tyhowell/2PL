@@ -1,0 +1,9 @@
+# Test multiple readers, two sites, one table
+r0: BEGIN;
+r0: SELECT * FROM student;
+r1: BEGIN;
+r1: SELECT * FROM student;
+r1: COMMIT;
+r0: COMMIT;
+r0: SHUTDOWN
+r1: SHUTDOWN

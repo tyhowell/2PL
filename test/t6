@@ -1,0 +1,10 @@
+# Test single site acquire locks multiple times, one table
+r0: BEGIN;
+r0: INSERT INTO student values(1,'Tommy', 'thomas.smith', 10);
+r0: SELECT * FROM student;
+r0: INSERT INTO student values(2,'Linus', 'linus.torvold', 7);
+r0: SELECT * FROM student;
+r0: INSERT INTO student values(3,'Lucy', 'lucy.johnson', 12);
+r0: SELECT * FROM student;
+r0: COMMIT;
+r0: SHUTDOWN
