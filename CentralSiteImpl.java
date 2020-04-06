@@ -1,6 +1,5 @@
 import java.rmi.*;
 import java.rmi.server.*;
-import java.rmi.registry.*;
 import java.sql.*;
 import java.util.List;
 import java.util.ArrayList;
@@ -10,18 +9,16 @@ import java.util.Properties;
 import java.util.Map;
 import java.util.HashMap;
 
-
-public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
-
-	/**
-	 *
+public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite {
+	/** Class implements the Central Site
+	 *  Responsible for master database, coordinate locks,
+	 *  detect and resolve deadlocks
 	 */
 	private static final long serialVersionUID = -4710339008601446074L;
 
 	private final Properties connectionProps;
 	private final String url;
 	Connection db;
-	//private Lock myOnlyLock;
 	private List<Lock> lockList;
 	private HashMap<String, Integer> tableNameToLockListIndex;
 	private static final Logger LOGGER = Logger.getLogger(RemoteSiteImpl.class.getName());
@@ -31,15 +28,12 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	private GlobalWaitForGraph globalWaitForGraph;
 
 	CentralSiteImpl() throws RemoteException {
-		// constructor for parent class
 		super();
 
-		//myOnlyLock = new Lock("student");
 		remoteSiteList = new ArrayList<RemoteSite>();
 		globalWaitForGraph = new GlobalWaitForGraph();
 		tableNameToLockListIndex = new HashMap<>();
-		//LOGGER.setUseParentHandlers(false);
-		// Loading the Driver
+		// Load the postgres river
 		try {
 			Class.forName("org.postgresql.Driver");
 		} catch (final ClassNotFoundException cnfe) {
@@ -67,6 +61,10 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	}
 
 	private void initializeLocks() {
+		/* Initialize one lock per table
+		 * Delete all entries from table
+		 * Remote sites will copy these tables when they connect
+		 */
 		lockList = new ArrayList<>();
 		Statement st = null;
 		ResultSet rs = null;
@@ -77,6 +75,8 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 			rs = st.executeQuery(selectAllTables);
 			while (rs.next()) {
 				String tableName = rs.getString("tablename");
+				st = db.createStatement();
+				st.executeUpdate("DELETE FROM " + tableName);
 				tableNameToLockListIndex.put(tableName, counter);
 				counter++;
 				lockList.add(new Lock(tableName));
@@ -103,7 +103,9 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 
 	public void disconnectSlave(Integer siteNum){
 		numRequestedDisconnects++;
-		LOGGER.log(Level.INFO, "Disconnect request received from site: " + Integer.toString(siteNum) + " have received _ disconnects: " + Integer.toString(numRequestedDisconnects));
+		LOGGER.log(Level.INFO, "Disconnect request received from site: " 
+			+ Integer.toString(siteNum) + " have received " 
+			+ Integer.toString(numRequestedDisconnects) + " disconnects");
 		if (numRemoteConnections == numRequestedDisconnects) {
 			disconnectAll();
 		}
@@ -112,7 +114,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 	public void disconnectAll() {
 		try {
 			for (Integer i = 0; i < numRemoteConnections; i++) {
-				LOGGER.log(Level.INFO, "Sending disconnect command to site: " + Integer.toString(i) + " " + Integer.toString(numRemoteConnections));
+				LOGGER.log(Level.INFO, "Sending disconnect command to site: " + Integer.toString(i));
 				remoteSiteList.get(i).disconnect();
 			}	
 			db.close();
@@ -290,7 +292,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 		//Connection db = null;
 		try {
 			//db = DriverManager.getConnection(url, connectionProps);
-			System.out.println("The connection to the database was successfully opened.");
+			//System.out.println("The connection to the database was successfully opened.");
 			st = db.createStatement();
 			st.executeUpdate(update);
 		} catch (final Exception e) {
@@ -301,7 +303,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite{
 				//stub.updateComplete(timestamp, localAddress.toString());
 				st.close();
 				//db.close();
-				System.out.println("Closed connection to the database.");
+				//System.out.println("Closed connection to the database.");
 			} catch (final SQLException sqlErr) {
 				sqlErr.printStackTrace();
 			}

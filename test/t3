@@ -1,10 +1,10 @@
-# Test deadlock detection
+# Test deadlock detection, two sites, two tables
 r0: BEGIN;
 r0: SELECT * FROM student;
 r1: BEGIN;
 r1: SELECT * FROM job;
-r1: INSERT INTO student values(4,'Devin');
-r0: INSERT INTO job values(4,'Doorman');
+r1: INSERT INTO student values(4,'Devin', 'devin.jones', 7);
+r0: INSERT INTO job values(4,'Garbageman', 35000, 'Public Works');
 r1: COMMIT;
 r0: COMMIT;
 r0: SHUTDOWN

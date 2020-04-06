@@ -1,7 +1,9 @@
 import java.rmi.*;
 import java.util.List;
 import java.util.Map;
-public interface CentralSite extends Remote{
+
+// Class extends Remote, implemented as CentralSiteImpl
+public interface CentralSite extends Remote {
 
 	public Boolean getLock(String query, Integer siteNum, Integer tID)throws RemoteException;
 	public void releaseLock(String table, String lockType, Integer siteNum, Integer tID)throws RemoteException;

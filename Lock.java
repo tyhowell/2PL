@@ -3,7 +3,6 @@
   Resource/tutorial utilized for cycle detection: https://www.baeldung.com/java-graph-has-a-cycle
 */
 
-import java.lang.*; 
 import java.util.*;
 
 public class Lock {
@@ -121,7 +120,7 @@ public class Lock {
 			}
 		}
 		ListIterator<Operation> writeLockIter = writeHeld.listIterator();
-		System.out.println("writeHeld size: " + writeHeld.size());
+		//System.out.println("writeHeld size: " + writeHeld.size());
 		while(writeLockIter.hasNext()) {
 			//System.out.println("Looping write locks rqt TID: " + requestingOperation.getTid());
 			//search currently held write locks for transaction ID of operation requesting release
@@ -129,7 +128,7 @@ public class Lock {
 			Operation nextOp = writeLockIter.next();
 			if (nextOp.getTid() == requestingOperation.getTid()) {
 				//found write lock 
-				//System.out.println("Found write lock!");
+				System.out.println("Found write lock!");
 				releasedWriter = true;
 				//writeHeld.remove(nextOpIndex);
 				writeLockIter.remove();
@@ -158,7 +157,7 @@ public class Lock {
 			//System.out.println("Releasing a reader, writeQueue size: " + Integer.toString(writeQueue.size()));
 			if(numReaders == 0){
 				isReadLocked = false;
-				if(writeQueue.size() > 0) {
+				if(writeQueue.size() > 0 && !isWriteLocked) {
 					//System.out.println("Last read lock released, issuing write lock");
 					Operation firstWriter = writeQueue.remove(0);
 					writeHeld.add(firstWriter);
@@ -167,7 +166,7 @@ public class Lock {
 				}
 			}	
 		}
-		else if(releasedWriter) {
+		if(releasedWriter) {
 			isWriteLocked = false;
 			if(readQueue.size() > 0){
 				//System.out.println("Write lock released, issuing read locks to everyone");
@@ -196,6 +195,13 @@ public class Lock {
 			for (int i = 0; i < readHeld.size(); i++) {
 				if (readHeld.get(i).getTid() == requestingOperation.getTid())
 					return true;
+			}
+			for (int i = 0; i < writeHeld.size(); i++) {
+				if (writeHeld.get(i).getTid() == requestingOperation.getTid()) {
+					isReadLocked = true;
+					readHeld.add(requestingOperation);
+					return true;
+				}
 			}
 			return false;
 		} else {

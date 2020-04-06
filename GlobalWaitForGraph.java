@@ -22,6 +22,10 @@ public class GlobalWaitForGraph {
     }
 
     public void add_dependency(Integer tid_has_dependency, Integer tid_has_lock) {
+        if (tid_has_dependency == tid_has_lock) {
+            System.out.println("Error, transaction cannot depend on itself");
+            return;
+        }
         Integer tid_has_dependency_index = tid_to_graph_index.get(tid_has_dependency);
         Integer tid_has_lock_index = tid_to_graph_index.get(tid_has_lock);
         /*for (Integer i = 0; i < this.graph_nodes.size(); i++) {

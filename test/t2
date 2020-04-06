@@ -1,4 +1,4 @@
-# Test lock release
+# Test lock release, two sites, one table
 r0: BEGIN;
 r0: SELECT * FROM student;
 r1: BEGIN;

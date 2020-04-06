@@ -12,10 +12,26 @@
     -	(optional) rmic CentralSiteRemote
     -	rmiregistry 5000
 4.	Start Central concurrency controller:
-    -	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. MyServer
+    -	java -cp postgresql-42.2.10.jar:. MyServer
 5.	Issue client requests
-    -	java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 0 t1
-    -   java –cp /homes/howell66/Library/Java/Extensions/postgresql-42.2.10.jar:. RemoteSiteImpl 1 t1
+    -   java -cp postgresql-42.2.10.jar:. RemoteSiteImpl 0 t1
+    -	java -cp postgresql-42.2.10.jar:. RemoteSiteImpl 1 t1
+
+## File Directory
+├── _README.md
+├── _test
+|   ├── t1
+|   ├── t2
+|   └── t3
+├── _CentralSite.java
+├── _CentralSiteImpl.java
+├── _ConcurrentLockNode.java
+├── _GlobalWaitForGraph.java
+├── _Lock.java
+├──_MyServer.java
+├──_Operation.java
+├──_RemoteSite.java
+└── _RemoteSiteImpl.java
 
 ## Metrics
 - [x] Consider at least four sites, each site with a copy of the database. Assume a fully replicated database.
@@ -27,7 +43,6 @@
 - [x] The 2PL implementation must ensure that all updates at all sites are posted in the same order. Furthermore, you must detect/resolve deadlocks. Please refer to section 11.6 in the textbook.
 
 ## To Do
-- [ ] IN THE MIDDLE OF RETRYING TRANSACTION IF ABORTED FOR DEADLOCK (MIMIC lockObtained())
 - [ ] Implement finer grained lock granularity
 - [ ] Support flexible/new tables
 - [ ] Support multi-table queries (or add to a limitations page in presentation)
@@ -37,5 +52,12 @@
 ## To Test
 - [ ] Lock manager lock already held by same tid
 - [ ] More rigorous deadlock test cases
+- [ ] Delete
+
 ## Notes
 - PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3
+## Test DB schema
+Table: student
+ id |  name | username | grade 
+Table: job
+ job_id | job_name | salary | department
