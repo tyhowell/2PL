@@ -52,7 +52,7 @@
 ## To Test
 - [ ] Lock manager lock already held by same tid
 - [ ] More rigorous deadlock test cases
-- [ ] Delete
+- [ ] Delete (try t7)
 
 ## Notes
 - PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3

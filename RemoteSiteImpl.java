@@ -9,6 +9,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.Map;
+import java.io.Console;
 import java.io.*;
  
 
@@ -87,6 +88,8 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		remoteSiteNum = siteNum;
 		connectionProps = new Properties();
 		connectionProps.setProperty("user", "remotereader");
+		//char[] password = System.console().readPassword("Input PostgreSQL password: ");
+		//connectionProps.setProperty("password", password.toString());
 		connectionProps.setProperty("password", "bb");
 		connectionProps.setProperty("ssl", "false");
 		try {
@@ -132,7 +135,7 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 				if (inputFile.get(currentQueryInputFileIndex - 1).contains(queryForMe)) {
 					queryParser(inputFile.get(currentQueryInputFileIndex - 1).replaceFirst(queryForMe, ""));
 					//5 second sleep to observe transaction locking in human time
-					Thread.sleep(5000);
+					//Thread.sleep(5000);
 				}	
 			} 
 		} catch(Exception e){
@@ -146,8 +149,6 @@ public class RemoteSiteImpl extends UnicastRemoteObject implements RemoteSite{
 		ResultSet rs = null;
 		try {
 			LOGGER.log(Level.INFO, "Read query, site: " + Integer.toString(remoteSiteNum) 
-				+ " " + queryStr);
-			System.out.println("Read query, site: " + Integer.toString(remoteSiteNum) 
 				+ " " + queryStr);
 			st = db.createStatement();
 			obtainedReadLock = stub.getLock(queryStr, remoteSiteNum, activeTransaction);
