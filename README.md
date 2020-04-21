@@ -1,39 +1,39 @@
 # 2PL Implementation using Java RMI, JDBC, and PostgreSQL
-## Tyler Howell (howell66@purdue.edu) 
-## Purdue CS54200 Spring 2020
+### Tyler Howell (mailto:howell66@purdue.edu) 
+### Purdue CS54200 Spring 2020
 
-1.	Launch postgresql servers on master and slave sites:
-    -	bin/pg_ctl -D data/ restart
-    -	(optional) bin/psql -d remotesite0 -U remotereader
-    -   turn autocommit off (\set AUTOCOMMIT off)
-2.	Compile code if changes made:
-    -	javac *.java
-3.	RMI nonsense:
-    -	(optional) rmic CentralSiteRemote
-    -	rmiregistry 5000
-4.	Start Central concurrency controller:
-    -	java -cp postgresql-42.2.10.jar:. MyServer
-5.	Issue client requests
-    -   java -cp postgresql-42.2.10.jar:. RemoteSiteImpl 0 t1
-    -	java -cp postgresql-42.2.10.jar:. RemoteSiteImpl 1 t1
+## Setup
+1. [Install PostgreSQL](https://www.postgresql.org/docs/9.3/tutorial-install.html), 
+2. Create 4 remote site databases (remotesite0, 1...) and one central site (centralsite) database
+3. Create one user with all table privileges (name: remotereader, pw: bb)
+## Launch
+1. Start postgresql servers on central and remote sites:
+    
+        bin/pg_ctl -D data/ restart
 
-## File Directory
-├── _README.md
-├── _test
-|   ├── t1
-|   ├── t2
-|   └── t3
-├── _CentralSite.java
-├── _CentralSiteImpl.java
-├── _ConcurrentLockNode.java
-├── _GlobalWaitForGraph.java
-├── _Lock.java
-├──_MyServer.java
-├──_Operation.java
-├──_RemoteSite.java
-└── _RemoteSiteImpl.java
+        (optional) bin/psql -d remotesite0 -U remotereader
+2.	Compile .java if first time or changes made:
+        
+        javac *.java
+3.	Start RMI registry:
+    
+        (deprecated) rmic CentralSiteRemote
 
-## Metrics
+        rmiregistry 5000
+
+4.	Start Central Site concurrency controller (cleanDB argument is optional):
+
+        java -cp postgresql-42.2.10.jar:. MyServer cleanDB:=true
+
+5.	Issue client requests (slowTime argument is optional):
+
+        java -cp postgresql-42.2.10.jar:. RemoteSiteImpl 0 t1 slowTime:=true
+
+        java -cp postgresql-42.2.10.jar:. RemoteSiteImpl 1 t1 slowTime:=true
+
+    ...
+
+## Project Requirements
 - [x] Consider at least four sites, each site with a copy of the database. Assume a fully replicated database.
 - [x] Use a non-distibuted database on each site, such as SQLite, PostgreSQL.
 - [x] Use a centralized control for global decisions with a Central Site. The lock table has to be store at the Central Site.
@@ -42,22 +42,20 @@
 - [x] You may implement the algorithm of section 11.3.1 of our text book (Ozsu) or a variation of it.
 - [x] The 2PL implementation must ensure that all updates at all sites are posted in the same order. Furthermore, you must detect/resolve deadlocks. Please refer to section 11.6 in the textbook.
 
-## To Do
+## Future Work
 - [ ] Implement finer grained lock granularity
 - [ ] Support flexible/new tables
 - [ ] Support multi-table queries (or add to a limitations page in presentation)
-- [ ] Complete all TODOs
-- [ ] Remove all unnecessary comments, printlns, 
-
-## To Test
-- [ ] Lock manager lock already held by same tid
-- [ ] More rigorous deadlock test cases
-- [ ] Delete (try t7)
 
 ## Notes
 - PostgreSQL DB: centralsite, remotesite0, remotesite1, remotesite2, remotesite3
-## Test DB schema
-Table: student
+- User: remotereader, Password: bb
+
+### Test DB schema
+student
+
  id |  name | username | grade 
-Table: job
+
+job
+
  job_id | job_name | salary | department

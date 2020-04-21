@@ -1,5 +1,4 @@
 
-import java.lang.*; 
 import java.util.*;
 
 public class GlobalWaitForGraph {
@@ -11,7 +10,7 @@ public class GlobalWaitForGraph {
         this.graph_nodes = new ArrayList<>();
         this.tid_to_graph_index = new HashMap<>();
     }
-    public void add_node(ConcurrentLockNode newNode) {
+    public void addNode(ConcurrentLockNode newNode) {
         this.graph_nodes.add(newNode);
         Integer index = graph_nodes.size() - 1;
         tid_to_graph_index.put(newNode.myTID, index);
@@ -21,21 +20,14 @@ public class GlobalWaitForGraph {
         return tid_to_graph_index.containsKey(tid);
     }
 
-    public void add_dependency(Integer tid_has_dependency, Integer tid_has_lock) {
+    public void addDependency(Integer tid_has_dependency, Integer tid_has_lock) {
         if (tid_has_dependency == tid_has_lock) {
             System.out.println("Error, transaction cannot depend on itself");
             return;
         }
         Integer tid_has_dependency_index = tid_to_graph_index.get(tid_has_dependency);
         Integer tid_has_lock_index = tid_to_graph_index.get(tid_has_lock);
-        /*for (Integer i = 0; i < this.graph_nodes.size(); i++) {
-            if (this.graph_nodes.get(i).myTID == tid_has_dependency) {
-                tid_has_dependency_index = i;
-            }
-            if (this.graph_nodes.get(i).myTID == tid_has_lock) {
-                tid_has_lock_index = i;
-            }
-        }*/
+
         if (tid_has_dependency_index == null || tid_has_lock_index == null) {
             System.err.println("Error: Transaction ID not found in Global Wait For Graph");
             return;
@@ -45,9 +37,8 @@ public class GlobalWaitForGraph {
     }
 
     public Boolean hasDeadlock() {
-        //recursive start of DFS traversal of GWFG
+        //first call recursive start of DFS traversal of GWFG
         for (ConcurrentLockNode dependencyNode : graph_nodes) {
-            //System.out.println("Initial deadlock call, TID: " + dependencyNode.myTID);
             if (!dependencyNode.traversed && hasDeadlock(dependencyNode)) {
                 return true;
             }
@@ -67,15 +58,11 @@ public class GlobalWaitForGraph {
         Integer sourceNodeIndex = tid_to_graph_index.get(sourceNode.myTID);
         graph_nodes.get(sourceNodeIndex).beingTraversed = true;
 
-        //System.out.println("hasDeadlock call, TID: " + sourceNode.myTID + " has the following dependencies: ");
         for (ConcurrentLockNode dependencyNode : sourceNode.dependentOnTheseNodes) {
-            //System.out.println("dependencies loop, TID: " + dependencyNode.myTID);
             Integer dependencyNodeIndex = tid_to_graph_index.get(dependencyNode.myTID);
-            //if (dependencyNode.beingTraversed == true) {
             if (graph_nodes.get(dependencyNodeIndex).beingTraversed == true) {
                 // deadlock detected
                 return true;
-            //} else if (!dependencyNode.traversed && hasDeadlock(dependencyNode)) {
             } else if (!graph_nodes.get(dependencyNodeIndex).traversed && hasDeadlock(dependencyNode)) {
                 return true;
             }

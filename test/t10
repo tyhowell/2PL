@@ -1,0 +1,18 @@
+# Test lock release, four sites, one table
+r0: BEGIN;
+r0: SELECT * FROM student;
+r1: BEGIN;
+r1: INSERT INTO student values(17,'Johnny');
+r2: BEGIN;
+r2: INSERT INTO student values(18,'Sammy');
+r3: BEGIN;
+r3: INSERT INTO student values(19,'Annie');
+r3: SELECT * FROM student;
+r0: COMMIT;
+r1: COMMIT;
+r2: COMMIT;
+r3: COMMIT;
+r0: SHUTDOWN
+r1: SHUTDOWN
+r2: SHUTDOWN
+r3: SHUTDOWN

@@ -1,3 +1,7 @@
+/*
+ * Ty Howell - CS54200 Spring 2020
+*/
+
 import java.rmi.*;
 import java.rmi.server.*;
 import java.sql.*;
@@ -26,8 +30,9 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 	private Integer numRequestedDisconnects;
 	List<RemoteSite> remoteSiteList; 
 	private GlobalWaitForGraph globalWaitForGraph;
+	private Boolean clean_db;
 
-	CentralSiteImpl() throws RemoteException {
+	CentralSiteImpl(String cleanDB) throws RemoteException {
 		super();
 
 		remoteSiteList = new ArrayList<RemoteSite>();
@@ -54,7 +59,11 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 			e.printStackTrace();
 			System.exit(-1);
 		}
-
+		if (cleanDB.contains("false")) {
+			clean_db = false;
+		} else {
+			clean_db = true;
+		}
 		numRemoteConnections = 0;
 		numRequestedDisconnects = 0;
 		initializeLocks();
@@ -71,19 +80,22 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 		Integer counter = 0;
 		try {
 			st = db.createStatement();
-			String selectAllTables = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'";
+			String selectAllTables = "SELECT tablename FROM pg_catalog.pg_tables WHERE"
+				+ " schemaname != 'pg_catalog' AND schemaname != 'information_schema'";
 			rs = st.executeQuery(selectAllTables);
 			while (rs.next()) {
 				String tableName = rs.getString("tablename");
 				st = db.createStatement();
-				st.executeUpdate("DELETE FROM " + tableName);
+				if (clean_db) {
+					st.executeUpdate("DELETE FROM " + tableName);
+				}
 				tableNameToLockListIndex.put(tableName, counter);
 				counter++;
 				lockList.add(new Lock(tableName));
 			}
 			LOGGER.log(Level.INFO, "Initialized locks for " + lockList.size() + " tables");
 		} catch (final Exception e) {
-			System.out.println("Database exception: " + e.getMessage());
+			System.err.println("Database exception: " + e.getMessage());
 			e.printStackTrace();
 		} finally {
 			try {
@@ -105,7 +117,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 		numRequestedDisconnects++;
 		LOGGER.log(Level.INFO, "Disconnect request received from site: " 
 			+ Integer.toString(siteNum) + " have received " 
-			+ Integer.toString(numRequestedDisconnects) + " disconnects");
+			+ Integer.toString(numRequestedDisconnects) + " disconnect requests");
 		if (numRemoteConnections == numRequestedDisconnects) {
 			disconnectAll();
 		}
@@ -129,7 +141,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 		Integer tableIndex = 0;
 		for (int i = 0; i < lockList.size(); i++) {
 			//loop tables to determine which lock to obtain
-			//TODO only supports single table queries
+			//only supports single table queries currently
 			if (queryStr.toLowerCase().contains(lockList.get(i).getName()))
 				tableIndex = i;
 		}
@@ -149,17 +161,17 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 		if (!globalWaitForGraph.transactionExists(tID)) {
 			//node does not exist in gwfg yet
 			ConcurrentLockNode newNode = new ConcurrentLockNode(tID);
-			globalWaitForGraph.add_node(newNode);
+			globalWaitForGraph.addNode(newNode);
 		}
 		//Boolean lockObtained = myOnlyLock.getLock(rqtOp);
 		Boolean lockObtained = lockList.get(tableIndex).getLock(rqtOp);
 		//return myOnlyLock.getLock(rqtOp);
 		if (!lockObtained) {
-			List<Integer> currentLockHolder = lockList.get(tableIndex).getCurrentLockHolder();//myOnlyLock.getCurrentLockHolder();
-			globalWaitForGraph.add_dependency(tID, currentLockHolder.get(0));
+			List<Integer> currentLockHolder = lockList.get(tableIndex).getCurrentLockHolder();
+			globalWaitForGraph.addDependency(tID, currentLockHolder.get(0));
 			if (globalWaitForGraph.hasDeadlock()) {
-				System.out.println("Deadlock detected");
-				//release all locks on whichever transaction has the least number of locks (releaseAllLocks)
+				LOGGER.log(Level.INFO, "Deadlock detected");
+				//release all locks on whichever transaction has the least number of locks
 				Integer numLocksRequester = numLocksForTransaction(tID);
 				Integer numLocksHolder = numLocksForTransaction(currentLockHolder.get(0));
 				Integer tIDtoAbort = tID;
@@ -179,16 +191,14 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 					LOGGER.log(Level.WARNING, "Unable to notify site of aborted transaction");
 				}
 				//remoteSite repeat transaction
-			} else {
-				System.out.println("No deadlock detected");
 			}
 		}
 		return lockObtained;
 	}
 
 	public void releaseLock(String table, String lockType, Integer siteNum, Integer tID) {
-		LOGGER.log(Level.INFO, "Releasing lock on table " + table + " from client " + Integer.toString(siteNum) + " tId " + Integer.toString(tID));
-		System.out.println("Releasing lock on table " + table + " from client " + Integer.toString(siteNum) + " tId " + Integer.toString(tID));
+		LOGGER.log(Level.INFO, "Releasing lock on table " + table 
+			+ " from client " + Integer.toString(siteNum) + " tId " + Integer.toString(tID));
 		Operation rqtOp;
 		if (lockType.equals("read")) {
 			rqtOp = new Operation(operationType.READ, table, "value", tID, "rest", siteNum);
@@ -202,7 +212,8 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 		for (Operation i : grantedLocks) {
 			Integer remoteSiteNum = i.remoteSiteNum;
 			try {
-				LOGGER.log(Level.INFO, "Notifying site number: " + Integer.toString(remoteSiteNum));
+				LOGGER.log(Level.INFO, "Notifying site number: " 
+					+ Integer.toString(remoteSiteNum));
 				remoteSiteList.get(remoteSiteNum).lockObtained(i.getType());
 			} catch (Exception e) {
 				LOGGER.log(Level.WARNING, "Unable to notify site of granted lock");
@@ -210,10 +221,9 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 		}
 	}
 	public void releaseAllLocks(Integer tID, Integer siteNum, operationType reason) {
-		//TODO change student to be correct tableName
 		Operation rqtReleaseOp = new Operation(reason, "student", "value", tID, "rest", siteNum);
 		List<Operation> grantedLocks = new ArrayList<>();
-		//attempt to release each lock TODO not the best way to do it
+		//attempt to release each lock 
 		for (int i = 0; i < lockList.size(); i++) {
 			List<Operation> tempGrantedLocks = new ArrayList<>();
 			tempGrantedLocks = lockList.get(i).releaseLock(rqtReleaseOp);
@@ -222,11 +232,13 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 			}
 		}
 		//grantedLocks = myOnlyLock.releaseLock(rqtReleaseOp);
-		LOGGER.log(Level.INFO, "releasing locks, notifying this many sites: " + Integer.toString(grantedLocks.size()));
+		LOGGER.log(Level.INFO, "Locks are released, notifying this many sites: " 
+			+ Integer.toString(grantedLocks.size()));
 		for (Operation i : grantedLocks) {
 			Integer remoteSiteNum = i.remoteSiteNum;
 			try {
-				LOGGER.log(Level.INFO, "Notifying site number: " + Integer.toString(remoteSiteNum));
+				LOGGER.log(Level.INFO, "Notifying site number: " 
+					+ Integer.toString(remoteSiteNum) + " now granted lock");
 				remoteSiteList.get(remoteSiteNum).lockObtained(i.getType());
 			} catch (Exception e) {
 				LOGGER.log(Level.WARNING, "Unable to notify site of granted lock");
@@ -259,7 +271,7 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 				resultList.add(row);
 			}
 		} catch (final Exception e) {
-			System.out.println("DatabaseTest exception: " + e.getMessage());
+			System.err.println("DatabaseTest exception: " + e.getMessage());
 			e.printStackTrace();
 		} finally {
 			// Close the ResultSet and the Statement variables and close
@@ -276,34 +288,26 @@ public class CentralSiteImpl extends UnicastRemoteObject implements CentralSite 
 	}
 
 	public void pushUpdate(String update, Integer fromSite) throws RemoteException{
-		System.out.println("Update from " + fromSite + ", update DB as follows: " + update);
+		LOGGER.log(Level.INFO, "Update from site " + fromSite 
+			+ ", update DB as follows: " + update);
 		try {
 			for (Integer i = 0; i < numRemoteConnections; i++) {
-				System.out.println("i: " + i + " fromsite: " + fromSite);
 				if (!i.equals(fromSite)) { //avoid pushing update back to originating site
-					System.out.println("Pushing update to site " + i);
 					remoteSiteList.get(i).receiveUpdate(update);
 				}
 			}	
-			//TODO implement wait for positive response
 		} catch (Exception e) {}
 		//update self
 		Statement st = null;
-		//Connection db = null;
 		try {
-			//db = DriverManager.getConnection(url, connectionProps);
-			//System.out.println("The connection to the database was successfully opened.");
 			st = db.createStatement();
 			st.executeUpdate(update);
 		} catch (final Exception e) {
-			System.out.println("Database exception: " + e.getMessage());
+			System.err.println("Database exception: " + e.getMessage());
 			e.printStackTrace();
 		} finally {
 			try {
-				//stub.updateComplete(timestamp, localAddress.toString());
 				st.close();
-				//db.close();
-				//System.out.println("Closed connection to the database.");
 			} catch (final SQLException sqlErr) {
 				sqlErr.printStackTrace();
 			}

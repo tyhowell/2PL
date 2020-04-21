@@ -1,5 +1,3 @@
-import java.lang.*; 
-
 enum operationType{
 	BEGINTRANSACTION, READ, WRITE, ABORT, COMMIT
 }
@@ -7,10 +5,13 @@ enum operationType{
 public class Operation {
 
 	private operationType opType;
-	private String arg;// data item
-	private String val;//value to be read or written
+	// data item
+	private String arg;
+	//value to be read or written
+	private String val;
 	private Integer tid;
-	private String res; //probably shouldn't be string
+	//result of read or write
+	private String res; 
 	public Integer remoteSiteNum;
 
 	Operation(operationType oType, String argument, String value, int tID, String rest, Integer siteNum) {

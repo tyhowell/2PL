@@ -1,9 +1,11 @@
 /*
-  Ty Howell - CS54200 Spring 2020
-  Resource/tutorial utilized for cycle detection: https://www.baeldung.com/java-graph-has-a-cycle
+ * Ty Howell - CS54200 Spring 2020
+ * Resource/tutorial utilized for cycle detection: https://www.baeldung.com/java-graph-has-a-cycle
 */
 
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Lock {
 
@@ -15,6 +17,7 @@ public class Lock {
 	private Boolean isReadLocked;
 	private Boolean isWriteLocked;
 	private Integer numReaders;
+	private static final Logger LOGGER = Logger.getLogger(Lock.class.getName());
 	
 	
 	Lock(String name) {
@@ -35,8 +38,6 @@ public class Lock {
 	public List<Integer> getCurrentLockHolder() {
 		// returns current lock holder's transaction ID and site number
 		List<Integer> currentLockInfo = new ArrayList<>();
-		System.out.println("Get current lock holder, iswritelocked isreadlocked writeheldsize readheldsize");
-		System.out.println(isWriteLocked + " " + isReadLocked + " " + writeHeld.size() + " " + readHeld.size());
 		if (isWriteLocked) {
 			currentLockInfo.add(writeHeld.get(0).getTid());
 			currentLockInfo.add(writeHeld.get(0).remoteSiteNum);	
@@ -54,20 +55,19 @@ public class Lock {
 
 		if(requestingOperation.getType() == operationType.READ) {
 			if (isReadLocked) {
-				System.out.println("Read lock is held, you can also read it!");
-				//readQueue.add(requestingOperation);
+				LOGGER.log(Level.INFO,"Read lock is held, concurrent read lock granted!");
 				readHeld.add(requestingOperation);
 				numReaders++;
 				return true;
 			}
 			else if(isWriteLocked) {
-				System.out.println("Write lock is held, you are added to read queue");
+				LOGGER.log(Level.INFO,"Write lock is held, you are added to read queue");
 				readQueue.add(requestingOperation);
 
 				return false;
 			}
 			else {
-				System.out.println("Lock is available, you've got it!");
+				LOGGER.log(Level.INFO,"Lock is available, you've got it!");
 				isReadLocked = true;
 				readHeld.add(requestingOperation);
 				numReaders++;
@@ -77,23 +77,23 @@ public class Lock {
 		}
 		else if (requestingOperation.getType() == operationType.WRITE) {
 			if (isReadLocked) {
-				System.out.println("Read lock is held, you are added to write queue");
+				LOGGER.log(Level.INFO,"Read lock is held, you are added to write queue");
 				writeQueue.add(requestingOperation);
 				return false;
 			} else if (isWriteLocked) {
-				System.out.println("Write lock is held, you are added to write queue");
+				LOGGER.log(Level.INFO,"Write lock is held, you are added to write queue");
 				writeQueue.add(requestingOperation);
 				return false;
 			}
 			else {
-				System.out.println("Write lock is available, you've got it!");
+				LOGGER.log(Level.INFO,"Write lock is available, you've got it!");
 				isWriteLocked = true;
 				writeHeld.add(requestingOperation);
 				return true;
 			}
 		}
 		else {
-			System.out.println("Malformed request, please try again");
+			LOGGER.log(Level.WARNING,"Malformed request, please try again");
 			return false;
 		}
 	}
@@ -102,35 +102,29 @@ public class Lock {
 		//releases lock from requesting operation
 		//returns list of operations whom locks were granted to
 		//also removes transaction from any queues (important for rollingback a transaction)
-		System.out.println("Lock Manager releasing a lock for TID: " + Integer.toString(requestingOperation.getTid()));
 		List<Operation> locksToBeGranted = new ArrayList<>();
 		Boolean releasedReader = false;
 		Boolean releasedWriter = false;
 		ListIterator<Operation> readLockIter = readHeld.listIterator();
 		while(readLockIter.hasNext()) {
 			//search currently held read locks for transaction ID of operation requesting release
-			//int nextOpIndex = readLockIter.nextIndex();
 			Operation nextOp = readLockIter.next();
 			if (nextOp.getTid() == requestingOperation.getTid()) {
 				//found read lock 
-				//System.out.println("Found read lock!");
+				LOGGER.log(Level.INFO,"Releasing read lock");
 				releasedReader = true;
-				//readHeld.remove(nextOpIndex);
 				readLockIter.remove();
 			}
 		}
 		ListIterator<Operation> writeLockIter = writeHeld.listIterator();
 		//System.out.println("writeHeld size: " + writeHeld.size());
 		while(writeLockIter.hasNext()) {
-			//System.out.println("Looping write locks rqt TID: " + requestingOperation.getTid());
 			//search currently held write locks for transaction ID of operation requesting release
-			//int nextOpIndex = writeLockIter.nextIndex();
 			Operation nextOp = writeLockIter.next();
 			if (nextOp.getTid() == requestingOperation.getTid()) {
 				//found write lock 
-				System.out.println("Found write lock!");
+				LOGGER.log(Level.INFO,"Releasing write lock");
 				releasedWriter = true;
-				//writeHeld.remove(nextOpIndex);
 				writeLockIter.remove();
 			}
 		}
@@ -152,13 +146,10 @@ public class Lock {
 		}
 
 		if(releasedReader) {
-			//readQueue.remove(requestingOperation);
 			numReaders--;
-			//System.out.println("Releasing a reader, writeQueue size: " + Integer.toString(writeQueue.size()));
 			if(numReaders == 0){
 				isReadLocked = false;
 				if(writeQueue.size() > 0 && !isWriteLocked) {
-					//System.out.println("Last read lock released, issuing write lock");
 					Operation firstWriter = writeQueue.remove(0);
 					writeHeld.add(firstWriter);
 					locksToBeGranted.add(firstWriter);
@@ -169,10 +160,8 @@ public class Lock {
 		if(releasedWriter) {
 			isWriteLocked = false;
 			if(readQueue.size() > 0){
-				//System.out.println("Write lock released, issuing read locks to everyone");
 				while (readQueue.size() > 0) {
 					//iterate readQueue, issuing all read locks 
-					//TODO is this the algorithm from the book?
 					numReaders++;
 					isReadLocked = true;
 					Operation firstReader = readQueue.remove(0);
@@ -181,7 +170,6 @@ public class Lock {
 				}
 			}
 			else if (writeQueue.size() > 0) {
-				//System.out.println("Write lock released, issuing next write lock");
 				isWriteLocked = true;
 				Operation firstWriter = writeQueue.remove(0);
 				writeHeld.add(firstWriter);
