@@ -1,5 +1,5 @@
 # 2PL Implementation using Java RMI, JDBC, and PostgreSQL
-### Tyler Howell (mailto:howell66@purdue.edu) 
+### Tyler Howell (howell66 (at) purdue (dot) edu) 
 ### Purdue CS54200 Spring 2020
 
 ## Setup
